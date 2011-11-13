@@ -518,18 +518,6 @@ static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transIn
 						G1 = (int) (G1 * d_alpha1) + _g1;
 						B1 = (int) (B1 * d_alpha1) + _b1;
 
-
-/*						*(uint64_t*)tex =
-						             (a0<<56) |
-						             (( A0 * R0 + a0 * _r )/255<<48)| 
-						             (( A0 * G0 + a0 * _g )/255<<40)| 
-						             (( A0 * B0 + a0 * _b )/255<<32)| 
-						             (a1<<24) |
-						             (( A1 * R1 + a1 * _r )/255<<16)| 
-						             (( A1 * G1 + a1 * _g )/255<< 8)| 
-						             (( A1 * B1 + a1 * _b )/255    ); 
-*/
-
 						*(uint64_t*)tex =
 						             (a0 >= A0 ? a0<<32 : A0<<32) |
 										 (R0<<56)| 

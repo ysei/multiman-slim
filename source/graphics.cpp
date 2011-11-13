@@ -403,17 +403,6 @@ int initConsole()
 return 0;
 }
 
-/*void DbgEnable()
-{
-	cellDbgFontConsoleEnable(consoleID);
-}
-
-void DbgDisable()
-{
-	cellDbgFontConsoleDisable(consoleID);
-}
-*/
-
 int termConsole()
 {
 	int ret;
@@ -1256,14 +1245,6 @@ void display_img_persp(int x, int y, int width, int height, int tx, int ty, floa
 
 void display_img(int x, int y, int width, int height, int tx, int ty, float z, int Dtx, int Dty)
 {
-	/*if((cover_mode==8) && V_WIDTH==720)
-	{
-		x-=(int)((float)width*0.04f);
-		y-=(int)((float)height*0.06f);
-		width+=(int)((float)width*0.08f);
-		height+=(int)((float)height*0.12f);
-
-	}*/
     vertex_text[vert_texture_indx].x= ((float) ((x)*2))/((float) 1920)-1.0f;
     vertex_text[vert_texture_indx].y= ((float) ((y)*-2))/((float) 1080)+1.0f;
     vertex_text[vert_texture_indx].z= z;
@@ -1341,14 +1322,6 @@ int angle_coord_y(int radius, float __angle)
 void display_img_angle(int x, int y, int width, int height, int tx, int ty, float z, int Dtx, int Dty, float _angle)
 {
 	int _radius;
-	/*if((cover_mode==8) && V_WIDTH==720)
-	{
-		x-=(int)((float)width*0.04f);
-		y-=(int)((float)height*0.06f);
-		width+=(int)((float)width*0.08f);
-		height+=(int)((float)height*0.12f);
-
-	}*/
 
 	_radius = (int)(((float)width*sqrt(2.f))/2.f); // diagonal/2 -> works for square textures at the moment
 
@@ -1411,39 +1384,3 @@ void draw_square(float x, float y, float w, float h, float z, u32 color)
 	vert_indx+=4;
 
 }
-
-/*void draw_square_angle(float _x, float _y, float w, float h, float z, u32 color, float _angle)
-{
-	int _radius;
-	(void) w;
-	(void) h;
-
-	_radius = (int)(((float) 540.f * sqrt(2.f))/2.f); // diagonal/2 -> works for square textures at the moment
-
-	float x=_x+(float)angle_coord_x(_radius, _angle)/1920.f;
-	float y=_y+(float)angle_coord_y(_radius, _angle)/1080.f;
-
-	vertex_color[vert_indx].x = x;
-	vertex_color[vert_indx].y = y;
-	vertex_color[vert_indx].z = z;
-	vertex_color[vert_indx].color=color;
-
-	vertex_color[vert_indx+1].x = x+w;
-	vertex_color[vert_indx+1].y = y;
-	vertex_color[vert_indx+1].z = z;
-	vertex_color[vert_indx+1].color=color;
-
-	vertex_color[vert_indx+2].x = x+w;
-	vertex_color[vert_indx+2].y = y-h;
-	vertex_color[vert_indx+2].z = z;
-	vertex_color[vert_indx+2].color=color;
-
-	vertex_color[vert_indx+3].x = x;
-	vertex_color[vert_indx+3].y = y-h;
-	vertex_color[vert_indx+3].z = z;
-	vertex_color[vert_indx+3].color=color;
-
-	cellGcmSetDrawArrays( gCellGcmCurrentContext, CELL_GCM_PRIMITIVE_QUADS, vert_indx, 4);
-	vert_indx+=4;
-}*/
-

@@ -5392,232 +5392,6 @@ int png_w=0, png_h=0, png_w2, png_h2;
 int jpg_w=0, jpg_h=0;
 int png_w_th=0, png_h_th=0;
 
-/*
-typedef struct{
-    sys_ppu_thread_t    *ppuThreadId;
-    uint32_t             fileNum;
-    usecond_t            sleepTime;
-    CellJpgDecCommand   *commandPtr;
-} CellJpgTimerThreadArg_t; */
-
-//typedef int32_t(*CellPngDecCbControlStream)(
-/*int32_t png_callback(
-	CellPngDecStrmInfo *strmInfo,
-	CellPngDecStrmParam *strmParam,
-	void *cbCtrlStrmArg)
-{
-	return 0;
-}*/
-
-/*
-typedef struct CellPngDecDispInfo {
-	uint64_t outputFrameWidthByte;
-	uint32_t outputFrameHeight;
-	uint64_t outputStartXByte;
-	uint32_t outputStartY;
-	uint64_t outputWidthByte;
-	uint32_t outputHeight;
-	uint32_t outputBitDepth;
-	uint32_t outputComponents;
-	uint32_t nextOutputStartY;
-	uint32_t scanPassCount;
-	void *outputImage;
-} CellPngDecDispInfo;
-
-
-typedef struct CellPngDecDispParam {
-	void *nextOutputImage;
-} CellPngDecDispParam;
-*/
-
-/*
-
-int32_t pngDispCb( CellPngDecDispInfo *dispInfo, CellPngDecDispParam *dispParam, void *cbCtrlDispArg )
-{
-	(void) cbCtrlDispArg;
-	dispParam->nextOutputImage=(u8*)(dispInfo->outputImage) + (dispInfo->outputWidthByte * dispInfo->outputHeight);
-//	ClearSurface();
-//	set_texture( text_bmp, 1920, 1080); //PIC1.PNG
-//	display_img(0, 0, 1920, 1080, 1920, 1080, 0.0f, 1920, 1080);
-//	flip();
-	pad_read();
-
-	{
-
-	if  ((new_pad & BUTTON_UP))
-	{
-		c_opacity_delta=16; dimc=0; dim=1;
-		if(cover_mode==8 && xmb[xmb_icon].size>1)
-		{
-			if(xmb[xmb_icon].first==0) {xmb[xmb_icon].first=xmb[xmb_icon].size-1; xmb_bg_show=0; xmb_bg_counter=200;}
-			else xmb_slide_step_y=10;
-		}
-	}
-
-	else if  ((new_pad & BUTTON_DOWN))
-	{
-
-		if(cover_mode==8 && xmb[xmb_icon].size>1)
-		{
-			if(xmb[xmb_icon].first==xmb[xmb_icon].size-1) {xmb[xmb_icon].first=0;  xmb_bg_show=0; xmb_bg_counter=200;}
-			else xmb_slide_step_y=-10;// && xmb[xmb_icon].first<xmb[xmb_icon].size-1) xmb[xmb_icon].first++;
-		}
-	}
-
-	else if ((new_pad & BUTTON_LEFT))
-	{
-		if(cover_mode==8 && xmb_icon>1) xmb_slide_step=15;
-	}
-
-	else if ((new_pad & BUTTON_RIGHT))
-	{
-			if(cover_mode==8 && xmb_icon<MAX_XMB_ICONS-1) xmb_slide_step=-15;
-	}
-
-
-	}
-	draw_xmb_bare(xmb_icon, 1, 1, 0);
-
-	return 0;
-}
-
-
-int load_png_partial(u8 *data, char *name, uint16_t _DW, u32 _lines, u16 *_image_id)
-{
-
-	int  ret_file, ret, ok=-1;
-
-	CellPngDecMainHandle        mHandle;
-	CellPngDecSubHandle         sHandle;
-
-	CellPngDecThreadInParam 	InParam;
-	CellPngDecThreadOutParam 	OutParam;
-
-	CellPngDecOpnParam			opnParam;
-	CellPngDecExtInfo			extInfo;
-
-	CellPngDecSrc 		        src;
-	CellPngDecOpnInfo 	        opnInfo;
-	CellPngDecInfo 		        info;
-
-	CellPngDecDataOutInfo 	    dOutInfo;
-	CellPngDecDataCtrlParam     dCtrlParam;
-
-	CellPngDecInParam 	        inParam;
-	CellPngDecExtInParam		extInParam;
-
-	CellPngDecOutParam 	        outParam;
-	CellPngDecExtOutParam		extoutParam;
-
-	CtrlMallocArg               MallocArg;
-	CtrlFreeArg                 FreeArg;
-
-//	CellPngDecCbCtrlStrm		pngCallback;
-//	pngCallback.cbCtrlStrmFunc= png_callback;
-//	pngCallback.cbCtrlStrmArg = NULL;
-
-	CellPngDecCbCtrlDisp		pngDisp;
-	pngDisp.cbCtrlDispFunc	=	pngDispCb;
-	pngDisp.cbCtrlDispArg	=	&_image_id;
-
-	CellPngDecDispParam			pngDispInfo;
-	pngDispInfo.nextOutputImage	=	data;
-
-	int ret_png=-1;
-
-	opnParam.selectChunk	  = 0; //no extra chunks needed
-
-	InParam.spuThreadEnable   = CELL_PNGDEC_SPU_THREAD_DISABLE;
-	InParam.ppuThreadPriority = 3071;
-	InParam.spuThreadPriority = 255;
-	InParam.cbCtrlMallocFunc  = png_malloc;
-	InParam.cbCtrlMallocArg   = &MallocArg;
-	InParam.cbCtrlFreeFunc    = png_free;
-	InParam.cbCtrlFreeArg     = &FreeArg;
-
-	extInParam.bufferMode	  =  CELL_PNGDEC_LINE_MODE;
-	extInParam.spuMode		  =  CELL_PNGDEC_TRYRECEIVE_EVENT;
-	extInParam.outputCounts   = _lines;
-
-	//extoutParam.outputWidthByte
-	//extoutParam.outputHeight
-
-
-	ret_png= ret= cellPngDecCreate(&mHandle, &InParam, &OutParam);
-
-//	memset(data, 0x00, sizeof(data)); //(DISPLAY_WIDTH * DISPLAY_HEIGHT * 4)
-
-	png_w= png_h= 0;
-
-	if(ret_png == CELL_OK)
-		{
-
-			memset(&src, 0, sizeof(CellPngDecSrc));
-			src.srcSelect     = CELL_PNGDEC_FILE;
-			src.fileName      = name;
-
-			src.spuThreadEnable  = CELL_PNGDEC_SPU_THREAD_DISABLE;
-
-//			ret_file=ret = cellPngDecOpen(mHandle, &sHandle, &src, &opnInfo);
-//			ret_file=ret = cellPngDecExtOpen(mHandle, &sHandle, &src, &opnInfo, &pngCallback, &opnParam);
-			ret_file=ret = cellPngDecExtOpen(mHandle, &sHandle, &src, &opnInfo, NULL, &opnParam);
-
-			if(ret == CELL_OK)
-				{
-//				ret = cellPngDecReadHeader(mHandle, sHandle, &info);
-				ret = cellPngDecExtReadHeader(mHandle, sHandle, &info, &extInfo);
-				}
-
-			if(ret == CELL_OK && (_DW * info.imageHeight <= 2073600))
-				{
-				inParam.commandPtr        = NULL;
-				inParam.outputMode        = CELL_PNGDEC_TOP_TO_BOTTOM;
-				inParam.outputColorSpace  = CELL_PNGDEC_RGBA;
-				inParam.outputBitDepth    = 8;
-				inParam.outputPackFlag    = CELL_PNGDEC_1BYTE_PER_1PIXEL;
-
-				if((info.colorSpace == CELL_PNGDEC_GRAYSCALE_ALPHA) || (info.colorSpace == CELL_PNGDEC_RGBA) || (info.chunkInformation & 0x10))
-					inParam.outputAlphaSelect = CELL_PNGDEC_STREAM_ALPHA;
-				else
-					inParam.outputAlphaSelect = CELL_PNGDEC_FIX_ALPHA;
-
-				inParam.outputColorAlpha  = 0xff;
-
-
-//				ret = cellPngDecSetParameter(mHandle, sHandle, &inParam, &outParam);
-				ret = cellPngDecExtSetParameter(mHandle, sHandle, &inParam, &outParam, &extInParam, &extoutParam);
-				}
-				else ret=-1;
-
-			if(ret == CELL_OK)
-				{
-					dCtrlParam.outputBytesPerLine = _DW * 4;
-//					ret = cellPngDecDecodeData(mHandle, sHandle, data, &dCtrlParam, &dOutInfo);
-					ret = cellPngDecExtDecodeData(mHandle, sHandle, data, &dCtrlParam, &dOutInfo, &pngDisp, &pngDispInfo);
-
-
-
-					if((ret == CELL_OK) && (dOutInfo.status == CELL_PNGDEC_DEC_STATUS_FINISH))
-						{
-						png_w= outParam.outputWidth;
-						png_h= outParam.outputHeight;
-						ok=0;
-						}
-				}
-
-			if(ret_file==0)	ret = cellPngDecClose(mHandle, sHandle);
-
-			ret = cellPngDecDestroy(mHandle);
-
-			}
-
-	//InParam.spuThreadEnable   = CELL_PNGDEC_SPU_THREAD_DISABLE;
-
-//	use_png_alpha=0;
-return ok;
-}
-*/
-
 void find_jfif(char *name, int64_t *fileOffset, uint32_t *fileSize)
 {
 	FILE *fp = NULL;
@@ -7193,146 +6967,6 @@ void put_reflection( uint8_t *buffer_to, uint32_t Twidth, uint32_t Theight, uint
 
 }
 
-
-/*
-void alter_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int x, int y, int border, uint32_t border_color)
-{
-	int row	 = 320 * 4;
-	int line = 1920 * 4;
-	uint32_t pos_to = ( y * line) + (x * 4), cline=0;
-	uint32_t pos_to_border = ( (y-border) * line) + ((x-border) * 4);
-	uint32_t pos_from = 0;
-	uint32_t lines=0;
-	uint16_t c_pixel, c_pixelR, c_pixelG, c_pixelB, c_pixelR_AVG, c_pixelG_AVG, c_pixelB_AVG, c_BRI;
-
-	c_BRI=0; //brightness decrease
-	int use_grayscale=0;
-	int use_blur=0;
-
-	if(border)
-	{
-		for(lines=0; lines<(height+(border*2)); lines++)
-		{
-			for(cline=0; cline<((width+border*2)*4); cline+=4)
-			{
-				memset(buffer_to + pos_to_border + cline + 0, (border_color>> 8) & 0xff, 1);
-				memset(buffer_to + pos_to_border + cline + 1, (border_color>>16) & 0xff, 1);
-				memset(buffer_to + pos_to_border + cline + 2, (border_color>>24) & 0xff, 1);
-				memset(buffer_to + pos_to_border + cline + 3, (border_color    ) & 0xff, 1);
-			}
-			pos_to_border+=line;
-		}
-	}
-
-	for(lines=0; lines<height; lines++)
-	{
-
-		if(!use_blur && !use_grayscale)
-			memcpy(buffer_to + pos_to, buffer_from + pos_from, width * 4);
-		else
-
-		for(cline=0; cline<(width*4); cline+=4)
-		{
-
-			if(use_blur)
-			{
-			// box blur
-			if(lines>0 && cline>0 && lines<(height-1) && cline<((width-1)*4))
-			{
-				c_pixelB = buffer_from[pos_from + cline + 0 + 4];
-				c_pixelG = buffer_from[pos_from + cline + 1 + 4];
-				c_pixelR = buffer_from[pos_from + cline + 2 + 4];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 - 4];
-				c_pixelG+= buffer_from[pos_from + cline + 1 - 4];
-				c_pixelR+= buffer_from[pos_from + cline + 2 - 4];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 - row];
-				c_pixelG+= buffer_from[pos_from + cline + 1 - row];
-				c_pixelR+= buffer_from[pos_from + cline + 2 - row];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 + row];
-				c_pixelG+= buffer_from[pos_from + cline + 1 + row];
-				c_pixelR+= buffer_from[pos_from + cline + 2 + row];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 - row - 4];
-				c_pixelG+= buffer_from[pos_from + cline + 1 - row - 4];
-				c_pixelR+= buffer_from[pos_from + cline + 2 - row - 4];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 + row + 4];
-				c_pixelG+= buffer_from[pos_from + cline + 1 + row + 4];
-				c_pixelR+= buffer_from[pos_from + cline + 2 + row + 4];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 - row + 4];
-				c_pixelG+= buffer_from[pos_from + cline + 1 - row + 4];
-				c_pixelR+= buffer_from[pos_from + cline + 2 - row + 4];
-
-				c_pixelB+= buffer_from[pos_from + cline + 0 + row - 4];
-				c_pixelG+= buffer_from[pos_from + cline + 1 + row - 4];
-				c_pixelR+= buffer_from[pos_from + cline + 2 + row - 4];
-
-				// average values
-				c_pixelB_AVG=((uint8_t) (c_pixelB/8));
-				c_pixelG_AVG=((uint8_t) (c_pixelG/8));
-				c_pixelR_AVG=((uint8_t) (c_pixelR/8));
-
-				if(c_BRI>0)
-				{
-					if(c_pixelB_AVG>c_BRI) c_pixelB_AVG-=c_BRI; else c_pixelB_AVG=0;
-					if(c_pixelG_AVG>c_BRI) c_pixelG_AVG-=c_BRI; else c_pixelG_AVG=0;
-					if(c_pixelR_AVG>c_BRI) c_pixelR_AVG-=c_BRI; else c_pixelR_AVG=0;
-				}
-
-				if(use_grayscale)
-				{
-					// greyscale + box blur
-					c_pixel = c_pixelB_AVG + c_pixelG_AVG + c_pixelR_AVG;
-					memset(buffer_to + pos_to + cline + 0, (uint8_t) (c_pixel/3), 3);
-				}
-				else
-				{
-					memset(buffer_to + pos_to + cline + 0, c_pixelB_AVG, 1);
-					memset(buffer_to + pos_to + cline + 1, c_pixelG_AVG, 1);
-					memset(buffer_to + pos_to + cline + 2, c_pixelR_AVG, 1);
-				}
-
-			}
-
-			else
-				{
-					// convert to grayscale only
-					c_pixel = buffer_from[pos_from + cline + 0];
-					c_pixel+= buffer_from[pos_from + cline + 1];
-					c_pixel+= buffer_from[pos_from + cline + 2];
-					if(c_BRI>0) { if(c_pixel>(c_BRI*3)) c_pixel-=(c_BRI*3); else c_pixel=0; }
-					memset(buffer_to + pos_to + cline + 0, (uint8_t) (c_pixel/3), 3);
-				}
-			} //use blur
-
-			else
-
-			{
-				// convert to grayscale only
-				c_pixel = buffer_from[pos_from + cline + 0];
-				c_pixel+= buffer_from[pos_from + cline + 1];
-				c_pixel+= buffer_from[pos_from + cline + 2];
-				if(c_BRI>0) { if(c_pixel>(c_BRI*3)) c_pixel-=(c_BRI*3); else c_pixel=0; }
-				memset(buffer_to + pos_to + cline + 0, (uint8_t) (c_pixel/3), 3);
-			}
-
-
-			// keep alpha
-			memset(buffer_to + pos_to + cline + 3, buffer_from[pos_from + cline + 3], 1);
-		}
-
-
-		pos_from+=row;
-		pos_to+=line;
-	}
-
-}
-*/
-
 void gray_texture( uint8_t *buffer_to, uint32_t width, uint32_t height, int step)
 {
 	if(gray_poster==0) return;
@@ -7360,76 +6994,6 @@ void gray_texture( uint8_t *buffer_to, uint32_t width, uint32_t height, int step
 	}
 }
 
-/*
-void to_565_texture( uint8_t *buffer_from, uint8_t *buffer_to, uint32_t width, uint32_t height)
-{
-	uint32_t cline=0, pos_to=0;//, height=sizeof(buffer_from)/4/width;
-	uint8_t c_pixelR, c_pixelG, c_pixelB, c_pixel1, c_pixel2;
-
-
-	for(cline=0; cline<(width*height*4); cline+=4)
-	{
-		c_pixelR = buffer_from[cline];
-		c_pixelG = buffer_from[cline + 1];
-		c_pixelB = buffer_from[cline + 2];
-
-		c_pixel1 = (c_pixelR & 0xF8) | ( (c_pixelG & 0xE0) >> 5);
-		c_pixel2 = ( (c_pixelG & 0x1C) << 3) | (c_pixelB >> 3);
-
-		memset(buffer_to + pos_to, c_pixel1, 1);
-		memset(buffer_to + pos_to+1, c_pixel2, 1);
-		pos_to+=2;
-	}
-}
-
-void to_RGB_texture( uint8_t *buffer_from, uint8_t *buffer_to, uint32_t width, uint32_t height)
-{
-	uint32_t cline=0, pos_to=0;//, height=sizeof(buffer_from)/4/width;
-	uint8_t c_pixelR, c_pixelG, c_pixelB, c_pixel1, c_pixel2;
-
-
-	for(cline=0; cline<(width*height*2); cline+=2)
-	{
-		c_pixel1 = buffer_from[cline];
-		c_pixel2 = buffer_from[cline + 1];
-
-		c_pixelR = (c_pixel1 & 0xF8);
-		c_pixelG = ( (c_pixel1 & 0x7) << 5) | ((c_pixel2 & 0xE0)>>5);
-		c_pixelB = (c_pixel2 & 0x1f)<<3;
-
-		memset(buffer_to + pos_to, c_pixelR, 1);
-		memset(buffer_to + pos_to+1, c_pixelG, 1);
-		memset(buffer_to + pos_to+2, c_pixelB, 1);
-		memset(buffer_to + pos_to+3, 0xff, 1);
-		pos_to+=4;
-	}
-}
-
-void to_333_texture( uint8_t *buffer_from, uint8_t *buffer_to, uint32_t width, uint32_t height)
-{
-	uint32_t cline=0, pos_to=0;//, height=sizeof(buffer_from)/4/width;
-
-	for(cline=0; cline<(width*height*4); cline+=4)
-	{
-		memcpy(buffer_to + pos_to, buffer_from + cline, 3);
-//		memcpy(buffer_to + pos_to, buffer_to + cline, 3);
-		pos_to+=3;
-	}
-}
-
-void to_RGB3_texture( uint8_t *buffer_from, uint8_t *buffer_to, uint32_t width, uint32_t height)
-{
-	uint32_t cline=0, pos_to=0;
-
-	for(cline=0; cline<(width*height*3); cline+=3)
-	{
-		memcpy(buffer_to + pos_to, buffer_from + cline, 3);
-		memset(buffer_to + pos_to + 3, 0xff, 1);
-		pos_to+=4;
-	}
-}
-
-*/
 void mip_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int scaleF)
 {
 	uint32_t pos_to = 0, pos_from = 0, cline=0, scale, cscale;
@@ -7503,50 +7067,6 @@ void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, in
 			if(lines>=p_range && cline>=p_range && lines<(wy-p_range) && cline<((wx-p_range)*4))
 			{
 
-/*
-				bt = (uint8_t*)(buffer_to) + pos_to + cline;
-				c_pixel  = (*(uint32_t*)(bt + p_step))>>8;
-				c_pixelB = (c_pixel>>16)&0xff;
-				c_pixelG = (c_pixel>> 8)&0xff;
-				c_pixelR =  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt - p_step))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt - row))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt + row))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt - row - p_step))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt + row + p_step))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt - row + p_step))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-				c_pixel= (*(uint32_t*)(bt + row - p_step))>>8;
-				c_pixelB+= (c_pixel>>16)&0xff;
-				c_pixelG+= (c_pixel>> 8)&0xff;
-				c_pixelR+=  c_pixel&0xff;
-
-//				*(uint32_t*)bt = c_pixel;
-*/
 
 			if(use_blur)
 			{
@@ -7597,13 +7117,6 @@ void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, in
 					c_pixelR_AVG = buffer_to[pos_to + cline + 2];
 				}
 
-
-/*				if(c_BRI>0 && c_BRI<100) // decrease brightness
-				{
-					if(c_pixelB_AVG>c_BRI) c_pixelB_AVG-=c_BRI; else c_pixelB_AVG=0;
-					if(c_pixelG_AVG>c_BRI) c_pixelG_AVG-=c_BRI; else c_pixelG_AVG=0;
-					if(c_pixelR_AVG>c_BRI) c_pixelR_AVG-=c_BRI; else c_pixelR_AVG=0;
-				}*/
 
 				if(c_BRI>0) // increase brightnes by percent (101+=1%+)
 				{
@@ -9770,35 +9283,6 @@ void sort_pane_bare(t_dir_pane_bare *list, int max)
 		}
 }
 
-
-
-
-/*
-void delete_entries_content(t_menu_list *list, int *max, char *content_type)
-{
-	int n;
-
-	n=0;
-
-	while(n<(*max) )
-		{
-		if(list[n].content == content_type)
-			{
-			if((*max) >1)
-				{
-				list[n].flags=0;
-				list[n]=list[(*max) -1];
-				(*max) --;
-				}
-			else  {if((*max) == 1)(*max) --; break;}
-
-			}
-		else n++;
-
-		}
-}
-*/
-
 int ps3_home_scan(char *path, t_dir_pane *list, int *max)
 {
 	if((*max)>=MAX_PANE_SIZE-1) {(*max)=(MAX_PANE_SIZE-1); return 0;}
@@ -10252,22 +9736,6 @@ regular_FS_NTFS:
 		list[*max].mode=entryP.FileAttributes;
 		list[*max].selected=0;
 
-/*		if (list[*max].type==1)
-		{
-			PFS_HFILE fh = PFS_FILE_INVALID;
-			uint64_t size;
-			list[*max].size=0;
-
-			if ((fh = PfsFileOpen(list[*max].path)) != PFS_FILE_INVALID) {
-				if (PfsFileGetSizeFromHandle(fh, &size) == 0) {
-								list[*max].size=size;
-				}
-			}
-			if (fh != PFS_FILE_INVALID) PfsFileClose(fh);
-
-		}
-
-*/
 		//list[*max].time=s.st_ctime;
 		//if(s.st_mtime>0) list[*max].time=s.st_mtime;
 
@@ -10331,35 +9799,6 @@ regular_FS:
 			sprintf(list[*max ].entry, "__%i%s", list[*max].type, entry.d_name);
 
 
-/*
-		if(entry->d_name[0]=='.' && entry->d_name[1]==0) continue;
-		if(!(entry->d_type & DT_DIR))
-		{
-			list[*max].type=1;
-		}
-		else
-		{
-			list[*max].type=0;
-		}
-
-		strncpy(list[*max ].name, entry->d_name, 128); list[*max ].name[128]=0;
-		if(strlen(path)==1)
-			sprintf(list[*max ].path, "/%s", entry->d_name);
-		else
-			sprintf(list[*max ].path, "%s/%s", path, entry->d_name);
-
-		if(entry->d_name[0]=='.' && entry->d_name[1]=='.' && entry->d_name[2]==0)
-		{
-			sprintf(list[*max ].path, "%s", path);
-			char *pch=list[*max ].path;
-			char *pathpos=strrchr(pch,'/');	int lastO=pathpos-pch;
-			list[*max ].path[lastO]=0;
-			sprintf(list[*max ].entry, "     ");
-		}
-		else
-			sprintf(list[*max ].entry, "__%i%s", list[*max].type, entry->d_name);
-
-*/
 		if(cellFsStat(list[*max ].path, &s)==CELL_FS_SUCCEEDED)
 		{
 			list[*max].size=s.st_size;
@@ -10981,8 +10420,6 @@ void fill_entries_from_device(const char *path, t_menu_list *list, int *max, u32
 /****************************************************/
 /* FILE UTILS                                       */
 /****************************************************/
-
-//char string1[1024];
 
 int copy_mode=0; // 0- normal 1-> pack files >= 4GB
 
@@ -13891,39 +13328,6 @@ return_1:
 	}
 	return 1;
 }
-
-//sprintf(mp3_now_playing,"%d Hz, (%imin %2.2isec) [%s]", Hdr.Frequency, ((int) tTime / 60), ((int) tTime % 60), mp3filename);
-// ** Display packet information **
-// Using the packet size and packet time information, it is possible to build "Seek Tables".
-// Then, by knowing approximately what time (in seconds) you require to playback from,
-// you can start playback from the closest data packet by searching for the closest record in the table.
-/*		if (Hdr.ID3!=0)
-		{
-			printf("Found ID3 Info\n");
-			printf("Version: %x.%x\n",Hdr.ID3>>8, Hdr.ID3&255);
-		}
-		else if (Hdr.Tag!=0)
-		{
-			printf("Found Tag info\n");
-		}
-		else
-		{
-			printf("Sync: 0x%x\n",Hdr.Sync);
-			printf("ID: 0x%x\n",Hdr.ID);
-			printf("Layer: 0x%x\n",Hdr.Layer);
-			printf("ProtBit: 0x%x\n",Hdr.ProtBit);
-			printf("BitRate: %d\n",Hdr.BitRate);
-			printf("Frequency: %d\n",Hdr.Frequency);
-			printf("PadBit: 0x%x\n",Hdr.PadBit);
-			printf("PrivBit: 0x%x\n",Hdr.PrivBit);
-			printf("Mode: 0x%x\n",Hdr.Mode);
-			printf("Copy: 0x%x\n",Hdr.Copy);
-			printf("Home: 0x%x\n",Hdr.Home);
-			printf("Emphasis: 0x%x\n",Hdr.Emphesis);
-			printf("Packet Time (secs): %f\n",Hdr.PacketTime);
-		} */
-		//printf("Packet Size (bytes): 0x%x\n",Hdr.PacketSize);
-
 
 void main_mp3( char *temp_mp3)
 {
@@ -20805,17 +20209,6 @@ thumb_cont_fceu:
 				sprintf(imgfile2, "%s/vba/%s.jpg", covers_retro, pane[ret_f].name); if(exist(imgfile2)) goto thumb_ok_vba;
 				sprintf(imgfile2, "%s/vba/%s.png", covers_retro, pane[ret_f].name); if(exist(imgfile2)) goto thumb_ok_vba;
 				sprintf(imgfile2, "%s.png", imgfile); if(!exist(imgfile2)) goto thumb_not_ok_vba;
-				/* if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s.JPG", imgfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s.PNG", imgfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-
-				sprintf(imgfile2, "%s/vba/%s.JPG", covers_retro, pane[ret_f].name); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s/vba/%s.PNG", covers_retro, pane[ret_f].name); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-
-				sprintf(imgfile2, "%s.jpg", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s.JPG", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s.png", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba;
-				sprintf(imgfile2, "%s.PNG", linkfile);// if(stat(imgfile2, &s3)>=0) goto thumb_ok_vba; */
 
 thumb_ok_vba:
 					add_xmb_member(xmb[8].member, &xmb[8].size, pane[ret_f].name, (char*)"GameBoy Game ROM",
@@ -20862,17 +20255,6 @@ thumb_cont_vba:
 				sprintf(imgfile2, "%s/fba/%s.jpg", covers_retro, pane[ret_f].name); if(exist(imgfile2)) goto thumb_ok_fba;
 				sprintf(imgfile2, "%s/fba/%s.png", covers_retro, pane[ret_f].name); if(exist(imgfile2)) goto thumb_ok_fba;
 				sprintf(imgfile2, "%s.png", imgfile); if(!exist(imgfile2)) goto thumb_not_ok_fba;
-				/* if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s.JPG", imgfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s.PNG", imgfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-
-				sprintf(imgfile2, "%s/fba/%s.JPG", covers_retro, pane[ret_f].name); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s/fba/%s.PNG", covers_retro, pane[ret_f].name); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-
-				sprintf(imgfile2, "%s.jpg", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s.JPG", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s.png", linkfile); if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba;
-				sprintf(imgfile2, "%s.PNG", linkfile);// if(stat(imgfile2, &s3)>=0) goto thumb_ok_fba; */
 
 thumb_ok_fba:
 				add_xmb_member(xmb[8].member, &xmb[8].size, pane[ret_f].name, (char*)"FBA Game ROM",
@@ -23184,97 +22566,6 @@ void shutdown_system(u8 mode) // X0-off X1-reboot, X=0 no prompt, X=1 prompt
 	}
 }
 
-/*void create_iso(char* iso_path)
-{
-	int rr;
-	int dev_id;
-	char _iso_path[512];
-	char filename[256];
-	u8* read_buffer = (unsigned char *) memalign(128, MB(2));
-	u32 readlen=0;
-	u64 disc_size=0;
-	device_info_t disc_info;
-
-	char just_drive[16]; just_drive[0]=0;
-	char *pathpos=strchr(iso_path+1,'/');
-
-	if(pathpos!=NULL)
-	{
-		strncpy(just_drive, iso_path, 15);
-		just_drive[pathpos-iso_path]=0;
-	}
-	else
-		sprintf(just_drive, "%s", iso_path);
-
-	rr=sys_storage_open(BD_DEVICE, &dev_id);
-	rr=sys_storage_get_device_info(BD_DEVICE, &disc_info);
-	rr=sys_storage_close(dev_id);
-
-	disc_size = disc_info.sector_size * disc_info.total_sectors;
-
-	if(disc_size && !rr && exist((char*)"/dev_bdvd"))
-	{
-		initConsole();
-		u32 sector=0;
-		u64 sectors_written=0;
-		u32 sec_step=(MB(2)/disc_info.sector_size);
-		u32 sec_step2=0;
-		u64 split_limit=0x100000000ULL; //4GB
-
-		u8   split_part=0;
-		bool split_mode=(strstr(iso_path, "/dev_hdd")==NULL);
-		u64  split_segment=0;
-
-		float read_speed=0.f;
-		int prog=0;
-		int prog_old=0;
-		int eta=0;
-
-		DPrintf("IMAGE SIZE: %i sectors (%.0f MB) (%u bytes per sector)\nSAVE PATH : %s\n\nPress [TRIANGLE] to abort\n\n", disc_info.total_sectors, (double) (disc_size/1048576), disc_info.sector_size, iso_path);
-		ClearSurface(); flip();
-
-		{
-			time_start=time(NULL);
-			int seconds=time_start+1;
-			int seconds2=seconds;
-			for(int ctrlc=0x3f; ctrlc<0xab; ctrlc++)
-			{
-				sys_storage_reset_bd();
-				sys_storage_auth_bd();
-				sys_storage_ctrl_bd(ctrlc);
-	rr=sys_storage_open(BD_DEVICE, &dev_id);
-
-				sector=2464;
-				sec_step2=1;
-
-				rr=sys_storage_read(dev_id, sector, sec_step2, read_buffer, &readlen);
-	rr=sys_storage_close(dev_id);
-				pad_read();
-				if(new_pad&BUTTON_TRIANGLE) break;
-
-				ClearSurface();
-				DPrintf("%2X = %8X\n", ctrlc, *(uint32_t*) ( (u8*)read_buffer));
-				sys_timer_usleep(500000);
-
-				flip();
-
-			}
-		}
-		termConsole();
-		new_pad=0;
-	}
-	else
-	{
-		dialog_ret=0; cellMsgDialogOpen2( type_dialog_ok, (const char*) STR_ISO5, dialog_fun2, (void*)0x0000aaab, NULL ); wait_dialog_simple();}
-
-cancel_iso:
-	rr=sys_storage_close(dev_id);
-	free(read_buffer);
-
-	ss_timer=0;
-	ss_timer_last=time(NULL);
-}
-*/
 void create_iso(char* iso_path)
 {
 	int rr;
@@ -26756,48 +26047,6 @@ copy_from_bluray:
 
 	xmb0_icon=xmb_icon; if(browse_column_active) xmb0_icon=0;
 
-/*	if ( (new_pad & BUTTON_SQUARE) && (old_pad & BUTTON_SELECT))
-	{
-		new_pad=0;
-		shutdown_system(0x11);
-	}
-
-	if ( (new_pad & BUTTON_TRIANGLE) && (old_pad & BUTTON_SELECT))
-	{
-		new_pad=0;
-		shutdown_system(0x10);
-	}
-*/
-
-
-/*
-	if ( (new_pad & BUTTON_SQUARE) && (old_pad & BUTTON_SELECT))
-	{
-		new_pad=0;
-		video_mode++; video_mode&=1;
-		switch (video_mode)
-		{
-			case 0:
-				{cellGcmSetFlipMode(CELL_GCM_DISPLAY_HSYNC); break;}
-			case 1:
-				{cellGcmSetFlipMode(CELL_GCM_DISPLAY_VSYNC); break;}
-//			case 2:
-//				{cellGcmSetFlipMode(CELL_GCM_DISPLAY_HSYNC_WITH_NOISE); break;}
-			default:
-				cellGcmSetFlipMode(CELL_GCM_DISPLAY_HSYNC);
-		}
-	}
-
-#ifdef WITH_BG_VIDEO
-	if ( (new_pad & BUTTON_TRIANGLE) && (old_pad & BUTTON_SELECT) && cover_mode==8)
-	{
-		new_pad=0;
-		sprintf(filename, "%s/wave.divx", app_usrdir);
-		if(exist(filename)) main_video( (char*) filename);
-	}
-#endif
-*/
-
 	// open side menu
 reinit_side_menu:
 	if ( (new_pad & BUTTON_TRIANGLE) && cover_mode==8 && !xmb_slide &&
@@ -28959,20 +28208,6 @@ cancel_mount2:
 						set_game_flags(game_sel);
 						write_last_play( filename2, menu_list[game_sel].path, menu_list[game_sel].title, menu_list[game_sel].title_id, 1);
 						char s_source[512];
-						/*
-						char s_destination[512];
-						sprintf(s_source, "%s/PS3_GAME/TROPDIR", menu_list[game_sel].path);
-						sprintf(s_destination, "%s/TROPDIR", app_homedir);
-						mkdir(s_destination, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR); cellFsChmod(s_destination, 0777);
-						sprintf(s_destination, "%s/TROPDIR", app_homedir);
-						my_game_copy((char*)s_source, (char*)s_destination);
-
-						sprintf(s_source, "%s/PS3_GAME/LICDIR/LIC.DAT", menu_list[game_sel].path);
-						sprintf(s_destination, "%s/LICDIR", app_homedir);
-						mkdir(s_destination, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR); cellFsChmod(s_destination, 0777);
-						sprintf(s_destination, "%s/LICDIR/LIC.DAT", app_homedir);
-						file_copy((char*)s_source, (char*)s_destination, 0);
-						*/
 						struct stat s;
 						int n=stat(menu_list[game_sel].path, &s);
 						if(( n < 0 || (s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRWXU | S_IRWXG | S_IRWXO)) && strstr(menu_list[game_sel].path, "/dev_hdd0/")!=NULL)
@@ -29825,33 +29060,7 @@ void flip(void)
 
 	angle+=3.6f;
 	if(angle>=360.f) angle=0.f;
-/*	if(cover_mode==8 && !key_repeat)
-	{
-		if(abs(xmb_slide_y) && abs(xmb_slide_y)<100) sys_timer_usleep( 6673 );
-		else if(abs(xmb_slide) && abs(xmb_slide)<100) sys_timer_usleep( 6673 );
-	}*/
 }
-
-/*
-void change_bri(u8 *buffer, int delta, u32 size)
-{
-	u32 pixel;
-	u32 deltaR;
-	u32 deltaG;
-	u32 deltaB;
-	float delta2=1.0f;		//positive increases brightness
-	if(delta<0) delta2=0.f; //negative decreases brightness
-	delta=abs(delta);		//size=+/-%
-	for(u32 fsr=0; fsr<size; fsr+=4)
-	{
-		pixel=*(uint32_t*) ((uint8_t*)(buffer)+fsr);
-		deltaR = ((u32)((float)((pixel>>24)&0xff)*(delta2+(float)delta/100.f)));if(deltaR>0xff) deltaR=0xff;
-		deltaG = ((u32)((float)((pixel>>16)&0xff)*(delta2+(float)delta/100.f)));if(deltaG>0xff) deltaG=0xff;
-		deltaB = ((u32)((float)((pixel>> 8)&0xff)*(delta2+(float)delta/100.f)));if(deltaB>0xff) deltaB=0xff;
-		*(uint32_t*) ((uint8_t*)(buffer)+fsr)= deltaR<<24 | deltaG<<16 | deltaB<<8 | pixel&0xff;
-	}
-}
-*/
 
 static void png_thread_entry( uint64_t arg )
 {
@@ -29978,8 +29187,6 @@ static void download_thread_entry( uint64_t arg )
 	}
 	sys_ppu_thread_exit( 0 );
 }
-
-
 
 static void misc_thread_entry( uint64_t arg )
 {
