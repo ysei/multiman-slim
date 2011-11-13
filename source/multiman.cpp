@@ -23227,9 +23227,6 @@ next_for_FM:
 
 		c_opacity_delta=16;	dimc=0; dim=1;
 
-		if(cover_mode == MODE_FILEMAN)
-			slide_screen_left(text_bmpUPSR);
-		else slide_screen_left(text_bmp);
 		last_cover_mode=cover_mode;
 
 		if(cover_mode == MODE_FILEMAN)
@@ -23285,10 +23282,6 @@ open_file_manager:
 
 	 if ( ((new_pad & BUTTON_L1) || ((old_pad & BUTTON_SELECT) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_START) )) ) &&  (lock_display_mode==-1 || cover_mode == MODE_FILEMAN) ) {
 		c_opacity_delta=16;	dimc=0; dim=1;
-		if(cover_mode == MODE_FILEMAN)
-			slide_screen_right(text_bmpUPSR);
-		else
-			slide_screen_right(text_bmp);
 from_fm:
 		if(cover_mode == MODE_FILEMAN || cover_mode==6) {
 			load_texture(text_bmpUPSR, playBGR, 1920);
