@@ -45,7 +45,7 @@ PPU_CPPFLAGS	:= -Wformat=0
 
 PPU_INCDIRS= -Iinclude -I$(CELL_INC_DIR) -I$(CELL_INC_DIR)/usb/usbpad -I$(CELL_INC_DIR)/usb/usbkb -I$(CELL_SDK)/target/ppu/include/sysutil -I$(CELL_SDK)/target/ppu/include 
 PPU_LDLIBS = -lvpost_stub -lvdec_stub
-PPU_LDLIBS += -lfont_stub -lfontFT_stub -lfreetype_stub -lpthread -lmixer -lm -lmstreamSPURSMP3 -ladec_stub -laudio_stub -lnet_stub -lnetctl_stub -lpngdec_stub -ldbgfont_gcm -lgcm_cmd -lgcm_sys_stub -lio_stub -lsysmodule_stub -lsysutil_stub -lfs_stub -lhttp_util_stub  -lspurs_stub -ljpgdec_stub -lhttp_stub -lsysutil_music_export_stub -lsysutil_photo_export_stub -lsysutil_video_export_stub -lrtc_stub -lsysutil_screenshot_stub
+PPU_LDLIBS += -lfont_stub -lfontFT_stub -lfreetype_stub -lpthread -lmixer -lm -lmstreamSPURSMP3 -ladec_stub -laudio_stub -lnet_stub -lnetctl_stub -lpngdec_stub -ldbgfont_gcm -lgcm_cmd -lgcm_sys_stub -lio_stub -lsysmodule_stub -lsysutil_stub -lfs_stub -lhttp_util_stub  -lspurs_stub -ljpgdec_stub -lhttp_stub -lsysutil_music_export_stub -lsysutil_photo_export_stub -lsysutil_video_export_stub -lrtc_stub -lsysutil_screenshot_stub -lsysutil_np_stub
 PPU_LDLIBS += -lusbd_stub 
 
 

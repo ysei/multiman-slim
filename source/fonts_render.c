@@ -12,10 +12,6 @@
 static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode );
 
 static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transInfo, uint32_t _color);
-//                                                 uint8_t r, uint8_t g, uint8_t b );
-
-//static void cellFontRenderTrans_AlphaCast_ARGB8( CellFontImageTransInfo* transInfo, uint8_t r, uint8_t g, uint8_t b );
-
 
 static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode )
 {
@@ -29,18 +25,18 @@ static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode )
 		len++;
 		if ( code >= 0x80 ) {
 			while (1) {
-				
+
 				if ( code & 0x40 ) { 
 					uint64_t mask = 0x20L;
 					uint64_t encode;
 					uint64_t n;
-					
+
 					for ( n=2;;n++ ) {
 						if ( (code & mask) == 0 ) {
 							len = n;
 							mask--;
 							if ( mask == 0 ) { // 0xFE or 0xFF 
-								
+
 								*ucs4 = 0x00000000;
 								return 0;
 							}
@@ -49,11 +45,11 @@ static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode )
 						mask = (mask >> 1);
 					}
 					code &= mask;
-					
+
 					for ( n=1; n<len; n++ ) {
 						encode = (uint64_t)*utf8;
 						if ( (encode & 0xc0) != 0x80 ) {
-							
+
 							if ( ucs4 ) *ucs4 = alterCode;
 							return n;
 						}
@@ -63,8 +59,8 @@ static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode )
 					break;
 				}
 				else { 
-					
-					
+
+
 					for( ;; utf8++ ) {
 						code = (uint64_t)*utf8;
 						if ( code < 0x80 ) break;
@@ -77,11 +73,9 @@ static uint32_t getUcs4( uint8_t*utf8, uint32_t*ucs4, uint32_t alterCode )
 		}
 	}
 	if ( ucs4 )  *ucs4 = (uint32_t)code;
-	
+
 	return len;
 }
-
-
 
 float Fonts_GetPropTextWidth( CellFont* cf,
                               uint8_t* utf8, float w, float h, float slant, float between,
@@ -321,18 +315,10 @@ float Fonts_RenderPropText( CellFont* cf,
 		if ( ret == CELL_OK ) {
 			
 			x += metrics.Horizontal.advance + between;
-			
-			
-//			cellFontRenderTrans_blendCast_ARGB8( &TransInfo, 255, 255, 255 );
-
 			cellFontRenderTrans_blendCast_ARGB8( &TransInfo, _color);
-
-//			cellFontRenderTrans_AlphaCast_ARGB8( &TransInfo, 255, 255, 255 );
 		}
-		else {
-			
+		else
 			x += w + between; 
-		}
 
 		
 		utf8 += getUcs4( utf8, &code, 0x3000 );
@@ -420,7 +406,6 @@ float Fonts_RenderVerticalText( CellFont* cf,
 
 
 static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transInfo, uint32_t _color)
-//                                                 uint8_t r, uint8_t g, uint8_t b )
 {
 	if ( transInfo ) {
 		unsigned char* tex;
@@ -469,12 +454,12 @@ static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transIn
 						R1 = (int) (R1 * d_alpha1) + _r1;
 						G1 = (int) (G1 * d_alpha1) + _g1;
 						B1 = (int) (B1 * d_alpha1) + _b1;
-						
+
 						*(uint32_t*)tex =
-						             (a1> _a ? a1 : _a) |
-										 (R1<<24)|
-										 (G1<<16)|
-										 (B1<<8);
+							(a1> _a ? a1 : _a) |
+							(R1<<24)|
+							(G1<<16)|
+							(B1<<8);
 
 					}
 					tex += 4;
@@ -497,7 +482,7 @@ static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transIn
 						_g1 = (int) (_g * d_alpha1);
 						_b1 = (int) (_b * d_alpha1);
 
-	
+
 						R0 = ((ARGBx2>>56)&0xff);
 						G0 = ((ARGBx2>>48)&0xff);
 						B0 = ((ARGBx2>>40)&0xff);
@@ -519,14 +504,14 @@ static void cellFontRenderTrans_blendCast_ARGB8( CellFontImageTransInfo* transIn
 						B1 = (int) (B1 * d_alpha1) + _b1;
 
 						*(uint64_t*)tex =
-						             (a0 >= A0 ? a0<<32 : A0<<32) |
-										 (R0<<56)| 
-										 (G0<<48)| 
-										 (B0<<40)| 
-						             (a1 >= A1 ? a1 : A1) |
-										 (R1<<24)| 
-										 (G1<<16)| 
-										 (B1<<8); 
+							(a0 >= A0 ? a0<<32 : A0<<32) |
+							(R0<<56)| 
+							(G0<<48)| 
+							(B0<<40)| 
+							(a1 >= A1 ? a1 : A1) |
+							(R1<<24)| 
+							(G1<<16)| 
+							(B1<<8); 
 
 
 

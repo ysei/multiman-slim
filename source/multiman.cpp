@@ -24,7 +24,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-//#include <sys/vm.h>
 
 #include <cell/http.h>
 #include <cell/mixer.h>
@@ -71,6 +70,9 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#include <np.h>
+#include <np/drm.h>
+
 #include "libpfsm.h"
 #include "mscommon.h"
 #include "semaphore.h"
@@ -81,6 +83,8 @@
 u64 HVSC_SYSCALL_ADDR		= HVSC_SYSCALL_ADDR_355;
 u64 NEW_POKE_SYSCALL_ADDR	= NEW_POKE_SYSCALL_ADDR_355;
 u64 SYSCALL_TABLE		= SYSCALL_TABLE_355;
+
+#define SPAWN_TEST_DATA_SIZE 256
 
 #include "syscall36.h"
 #include "storage.h"
@@ -297,13 +301,6 @@ void write_last_state();
 void save_options();
 void shutdown_system(u8 mode);
 void create_iso(char* iso_path);
-
-void mip_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int scaleF);
-void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, int y,  int wx, int wy, uint32_t c_BRI, int use_grayscale, int iterations, int p_range);
-
-void print_label(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int font);
-void print_label_ex(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int font, float hscale, float vscale, int centered);
-void flush_ttf(uint8_t *buffer, uint32_t _V_WIDTH, uint32_t _V_HEIGHT);
 
 void show_sysinfo();
 void show_sysinfo_path();
@@ -683,7 +680,7 @@ char usb_home_4[128]="/_skip_";
 char usb_home_5[128]="/_skip_";
 
 // ISO/CUE formats
-char iso_bdv[64]="/dev_hdd0/BDISO";		// Blu-ray iso images
+char iso_bdv[64]="/dev_hdd0/BDISO";	// Blu-ray iso images
 char iso_dvd[64]="/dev_hdd0/DVDISO";	// DVD Video iso images
 char iso_ps3[64]="/dev_hdd0/PS3ISO";	// PS3 iso images
 char iso_psx[64]="/dev_hdd0/PSXISO";	// PS1 iso / bin+cue
@@ -885,8 +882,8 @@ int payload=0;
 char payloadT[2];
 int socket_handle;
 
-int      portNum = -1;
-int	multiStreamStarted=0;
+int portNum = -1;
+int multiStreamStarted=0;
 
 //OSK
 CellOskDialogCallbackReturnParam OutputInfo;
@@ -917,7 +914,6 @@ bool is_remoteplay=0;
 u8 force_update_check=0;
 u8 display_mode=0; // 0-All titles, 1-Games only, 2-AVCHD/Video only
 u8 game_bg_overlay=1;
-
 
 typedef struct
 {
@@ -950,12 +946,6 @@ typedef struct
 t_opt_list;
 t_opt_list opt_list[MAX_LIST_OPTIONS];
 u8 opt_list_max=0;
-
-int open_select_menu(char *_caption, int _width, t_opt_list *list, int _max, u8 *buffer, int _max_entries, int _centered);
-int open_list_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries, int _centered);
-int open_dd_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries);
-int context_menu(char *_cap, int _type, char *c_pane, char *o_pane);
-int open_side_menu(int _top, int sel);
 
 #define MAX_PANE_SIZE 2560
 typedef struct
@@ -1508,6 +1498,164 @@ static void dialog_fun2( int button_type, void * )
 
 #define ClearSurface() cellGcmSetClearSurface(CELL_GCM_CLEAR_Z | CELL_GCM_CLEAR_R | CELL_GCM_CLEAR_G |	CELL_GCM_CLEAR_B | CELL_GCM_CLEAR_A);
 
+void print_label_ex(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont, float hscale, float vscale, int centered)
+{
+	if(max_ttf_label<512)
+	{
+		ttf_label[max_ttf_label].x = x;
+		ttf_label[max_ttf_label].y = y;
+		ttf_label[max_ttf_label].scale = scale;
+		ttf_label[max_ttf_label].color = color;
+		ttf_label[max_ttf_label].weight = weight;
+		ttf_label[max_ttf_label].slant = slant;
+		ttf_label[max_ttf_label].font = ufont;
+		ttf_label[max_ttf_label].hscale = hscale;
+		ttf_label[max_ttf_label].vscale = vscale;
+		ttf_label[max_ttf_label].centered = centered;
+		ttf_label[max_ttf_label].cut = 0.0f;
+		sprintf(ttf_label[max_ttf_label].label, "%s", str1p);
+		max_ttf_label++;
+	}
+}
+
+static void print_label(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont)
+{
+	if(max_ttf_label<512)
+	{
+		ttf_label[max_ttf_label].x = x;
+		ttf_label[max_ttf_label].y = y;
+		ttf_label[max_ttf_label].scale = scale;
+		ttf_label[max_ttf_label].color = color;
+		ttf_label[max_ttf_label].weight = weight;
+		ttf_label[max_ttf_label].slant = slant;
+		ttf_label[max_ttf_label].font = ufont;
+		ttf_label[max_ttf_label].hscale = 1.0f;
+		ttf_label[max_ttf_label].vscale = 1.0f;
+		ttf_label[max_ttf_label].centered = 0;
+		ttf_label[max_ttf_label].cut = 0.0f;
+
+		sprintf(ttf_label[max_ttf_label].label, "%s", str1p);
+		max_ttf_label++;
+	}
+}
+
+void flush_ttf(uint8_t *buffer, uint32_t _V_WIDTH, uint32_t _V_HEIGHT)
+{
+	if(!max_ttf_label) return;
+		uint32_t color;
+		CellFontRenderer* renderer;
+		CellFontRenderSurface* surf;
+		CellFont Font[1];
+		CellFont* cf;
+		int fn;
+
+		surf     = &RenderWork.Surface;
+		cellFontRenderSurfaceInit( surf,
+		                           buffer, _V_WIDTH*4, 4,
+		                           _V_WIDTH, _V_HEIGHT );
+
+		cellFontRenderSurfaceSetScissor( surf, 0, 0, _V_WIDTH, _V_HEIGHT );
+		renderer = &RenderWork.Renderer;
+		fn = FONT_SYSTEM_5;
+
+		if(user_font==1 || user_font>19) fn = FONT_SYSTEM_GOTHIC_JP;
+		else if (user_font==2) fn = FONT_SYSTEM_GOTHIC_LATIN;
+		else if (user_font==3) fn = FONT_SYSTEM_SANS_SERIF;
+		else if (user_font==4) fn = FONT_SYSTEM_SERIF;
+		else if (user_font>4 && user_font<10) fn=user_font+5;
+		else if (user_font>14 && user_font<20) fn=user_font;
+
+		int ret;
+
+		if(ttf_label[0].font!=0) fn=ttf_label[0].font;
+		ret	= Fonts_AttachFont( fonts, fn, &Font[0] );
+
+		if ( ret == CELL_OK ) cf = &Font[0];
+		else                  cf = (CellFont*)0;
+
+		if ( cf ) {
+			static float textScale = 1.00f;
+			static float weight = 1.00f;
+			static float slant = 0.00f;
+			float surfW = (float)_V_WIDTH;
+			float surfH = (float)_V_HEIGHT;
+			float textW;// = surfW;
+			float textH;// = surfH;
+			float step = 0.f;
+			float lineH, baseY;
+			float w;
+			textW = surfW * textScale;
+			textH = surfH * textScale;
+			uint8_t* utf8Str0;
+			float scale, scaley, x, y;
+			int cl=0;
+
+			for(cl=0; cl<max_ttf_label; cl++)
+			{
+				if(cl==0) Fonts_BindRenderer( cf, renderer );
+				slant  = ttf_label[cl].slant;
+				weight = ttf_label[cl].weight;
+
+				scale  = 30.0f * ttf_label[cl].scale * (surfW/1920.0f) * ttf_label[cl].hscale;
+				scaley = 30.0f * ttf_label[cl].scale * (surfH/1080.0f) * ttf_label[cl].vscale;
+
+				Fonts_SetFontScale( cf, scale );
+				Fonts_SetFontEffectWeight( cf, weight );
+				Fonts_SetFontEffectSlant( cf, slant );
+				ret = Fonts_GetFontHorizontalLayout( cf, &lineH, &baseY );
+
+				utf8Str0 = (uint8_t*) ttf_label[cl].label;
+				x = ttf_label[cl].x;
+				y = ttf_label[cl].y;
+				color = ttf_label[cl].color; //0x80ffffff;//
+
+				if ( ret == CELL_OK ) {
+
+					w = Fonts_GetPropTextWidth( cf, utf8Str0, scale, scaley, slant, step, NULL, NULL );
+
+					if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
+					else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
+
+
+					if ( ( (w+(x*surfW)) > textW) && (ttf_label[cl].cut==0.0f) && ttf_label[cl].centered!=2) {
+						float ratio;
+
+						scale = Fonts_GetPropTextWidthRescale( scale, w, (textW-(x*surfW)), &ratio );
+						w     *= ratio;
+						//baseY *= ratio;
+						//lineH *= ratio;
+						step  *= ratio;
+						if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
+						else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
+
+					}
+					else if ( (ttf_label[cl].cut>0.0f) && (w>((int)(ttf_label[cl].cut*(float)_V_WIDTH))) ) {
+						float ratio;
+
+						scale = Fonts_GetPropTextWidthRescale( scale, w, ((ttf_label[cl].cut*(float)_V_WIDTH)), &ratio );
+						w     *= ratio;
+						//baseY *= ratio;
+						//lineH *= ratio;
+						step  *= ratio;
+
+						if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
+						else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
+
+					}
+
+					if(cover_mode == MODE_XMMB) Fonts_RenderPropText( cf, surf, (int)(x*surfW)+2, (int)(y*surfH)+2, utf8Str0, scale, scaley, slant, step, 0x10101010 );
+					Fonts_RenderPropText( cf, surf, (int)(x*surfW), (int)(y*surfH), utf8Str0, scale, scaley, slant, step, color );//(color & 0x00ffffff)
+
+				}
+			}
+					Fonts_UnbindRenderer( cf );
+
+			Fonts_DetachFont( cf );
+		}
+
+	max_ttf_label=0;
+}
+
 static void update_fm_stripe()
 {
 	if(fm_sel==fm_sel_old) return;
@@ -1699,15 +1847,8 @@ read_mouse:
 		if(Data.y_axis> 10) padd|=BUTTON_DOWN;
 	}
 
-	if(cover_mode!=4) {
-		if(Data.wheel>0)	padd = padd | (1<<4);
-		if(Data.wheel<0)	padd = padd | (1<<6);
-	}
-	else
-	{
-		if(Data.wheel>0)	padd = padd | (1<<7);
-		if(Data.wheel<0)	padd = padd | (1<<5);
-	}
+	if(Data.wheel>0)	padd = padd | (1<<4);
+	if(Data.wheel<0)	padd = padd | (1<<6);
 
 	if(cover_mode != MODE_FILEMAN) {
 		if(Data.x_axis>10)	padd = padd | (1<<5);
@@ -2124,7 +2265,7 @@ void put_label(uint8_t *buffer, uint32_t width, uint32_t height, char *str1p, ch
 
 static void load_coverflow_legend()
 {
-	if(cover_mode!=4 || !xmb[6].init || coverflow_legend_loading) return;
+	if(!xmb[6].init || coverflow_legend_loading) return;
 	coverflow_legend_loading=1;
 	if((xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].game_id!=-1) game_sel=xmb[xmb_icon].member[xmb[xmb_icon].first].game_id; // || xmb_icon==8
 	int grey=(menu_list[game_sel].title[0]=='_' || menu_list[game_sel].split);
@@ -2197,7 +2338,7 @@ static u8 read_pad_info()
 			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}}
 	}
 
-	if ( (((new_pad & BUTTON_DOWN)) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( (((new_pad & BUTTON_DOWN)))) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 		counter_png=30;
 		if(cover_mode != MODE_XMMB)
@@ -2239,7 +2380,7 @@ static u8 read_pad_info()
 
 	}
 
-	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( ((new_pad & BUTTON_LEFT))) {
 //		old_pad=0; new_pad=0;
 		xmb_legend_drawn=0;
 		xmb_info_drawn=0;
@@ -2267,7 +2408,7 @@ static u8 read_pad_info()
 		}
 	}
 
-	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( ((new_pad & BUTTON_RIGHT))) {
 //		old_pad=0; new_pad=0;
 		xmb_legend_drawn=0;
 		xmb_info_drawn=0;
@@ -2612,76 +2753,76 @@ static void add_game_column(t_menu_list *list, int max, int sel, bool force_cove
 		if(cover_mode == MODE_XMMB)
 		{
 
-		if(!xmb[5].init || !xmb[5].size)
-		{
-			xmb[5].first=0;
-			xmb[5].size=0;
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_LINK, (char*)STR_XC5_LINK1,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_ST, (char*)STR_XC5_ST1,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-
-			if(ss_patched && exist((char*)"/dev_bdvd"))
+			if(!xmb[5].init || !xmb[5].size)
 			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"BD/DVD", (char*)STR_SIDE_BROW,
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
-			}
+				xmb[5].first=0;
+				xmb[5].size=0;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_LINK, (char*)STR_XC5_LINK1,
+						/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_ST, (char*)STR_XC5_ST1,
+						/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
 
-			if(exist((char*)"/dev_sd"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"SD/SDHC", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_sd", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			if(exist((char*)"/dev_cf"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"CF", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_cf", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			if(exist((char*)"/dev_ms"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"MS/MSPRO", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_ms", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			ext_devs++;
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_BR_HDD, (char*)STR_SIDE_BROW,
-				/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_hdd0", /*i_path*/(char*)"/", 0, 0);
-
-			for(int ret_f=0; ret_f<99; ret_f++)
-			{
-				sprintf(icon_path, "/dev_usb%03i", ret_f);
-				if(exist(icon_path))
+				if(ss_patched && exist((char*)"/dev_bdvd"))
 				{
 					ext_devs++;
-					sprintf(t_ip, (char*) STR_BR_USB, ret_f);
-					add_xmb_member(xmb[5].member, &xmb[5].size, t_ip, (char*)STR_SIDE_BROW,
-						/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)icon_path, /*i_path*/(char*)"/", 0, 0);
+					add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"BD/DVD", (char*)STR_SIDE_BROW,
+							/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
 				}
-			}
 
-		}
-
-		if(xmb[5].size>(3+ext_devs))
-		{
-			for(int m=2; m<(xmb[5].size); m++)
-			{
-				if(xmb[5].member[m].type==0 && xmb[5].init) ext_devs++;
-				if(xmb[5].member[m].type==2)
+				if(exist((char*)"/dev_sd"))
 				{
-					delete_xmb_member(xmb[5].member, &xmb[5].size, m);
-					if(m>=xmb[5].size) break;
-					m--;
+					ext_devs++;
+					add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"SD/SDHC", (char*)"ROOT",
+							/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_sd", /*i_path*/(char*)"/", 0, 0);
 				}
+
+				if(exist((char*)"/dev_cf"))
+				{
+					ext_devs++;
+					add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"CF", (char*)"ROOT",
+							/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_cf", /*i_path*/(char*)"/", 0, 0);
+				}
+
+				if(exist((char*)"/dev_ms"))
+				{
+					ext_devs++;
+					add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"MS/MSPRO", (char*)"ROOT",
+							/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_ms", /*i_path*/(char*)"/", 0, 0);
+				}
+
+				ext_devs++;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_BR_HDD, (char*)STR_SIDE_BROW,
+						/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_hdd0", /*i_path*/(char*)"/", 0, 0);
+
+				for(int ret_f=0; ret_f<99; ret_f++)
+				{
+					sprintf(icon_path, "/dev_usb%03i", ret_f);
+					if(exist(icon_path))
+					{
+						ext_devs++;
+						sprintf(t_ip, (char*) STR_BR_USB, ret_f);
+						add_xmb_member(xmb[5].member, &xmb[5].size, t_ip, (char*)STR_SIDE_BROW,
+								/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)icon_path, /*i_path*/(char*)"/", 0, 0);
+					}
+				}
+
 			}
-			sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
-			//delete_xmb_dubs(xmb[5].member, &xmb[5].size);
-		}
+
+			if(xmb[5].size>(3+ext_devs))
+			{
+				for(int m=2; m<(xmb[5].size); m++)
+				{
+					if(xmb[5].member[m].type==0 && xmb[5].init) ext_devs++;
+					if(xmb[5].member[m].type==2)
+					{
+						delete_xmb_member(xmb[5].member, &xmb[5].size, m);
+						if(m>=xmb[5].size) break;
+						m--;
+					}
+				}
+				sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
+				//delete_xmb_dubs(xmb[5].member, &xmb[5].size);
+			}
 
 		}//xmmb
 
@@ -4653,26 +4794,66 @@ static void launch_self(char *_self, char *_param)
 	exitspawn((const char*)self, (char* const*)launchargv, NULL, NULL, 0, 64, SYS_PROCESS_PRIMARY_STACK_SIZE_512K);
 }
 
+#define CREATED_PROC_PRIO 1000
+/* buffer for NP */
+#define NP_POOL_SIZE  (128*1024)
+uint8_t np_pool[NP_POOL_SIZE];
+
 static void launch_snes_emu(char *rom)
 {
-	if(!net_used_ignore())
-		return;
-	if(!exist(snes_self))
-	{
-		dialog_ret=0;
-		cellMsgDialogOpen2( type_dialog_ok, (const char*)STR_WARN_SNES, dialog_fun2, (void*)0x0000aaab, NULL );
-		wait_dialog();
-		check_for_game_update((char*)"SNES90000", (char*)" ");
-		return;
+	sceNpInit(NP_POOL_SIZE, np_pool);
+	int ret;
+	SceNpDrmKey k_licensee = {  /* see package sample (package.conf) */
+		{ 0xc0,0xa3,0xb3,0x64,0x1c,0x2a,0xd1,0xef,
+		  0x23,0x15,0x3a,0x48,0xa3,0xe1,0x2f,0xe7 }
+	};
+	
+
+	printf("\n## NPDRM EXITSPAWN TEST ##\n");
+
+	/* spawn data : 00, 01, 02, ... FF */
+	char spawn_data[SPAWN_TEST_DATA_SIZE];
+	for (unsigned int i = 0; i < sizeof(spawn_data); ++i) {
+		spawn_data[i] = i & 0xFF;
 	}
+	/* spawn arguments */
+	char spawn_data_size[16];
+	sprintf(spawn_data_size, "%d", SPAWN_TEST_DATA_SIZE);
+
+	const char* const spawn_argv[] = {
+		spawn_data_size,   /* data size (ascii) */
+		"test argv for",
+		"sceNpDrmProcessExitSpawn2()",
+		NULL /* null terminate */
+	};
+
 	char* launchargv[2];
 	memset(launchargv, 0, sizeof(launchargv));
 
 	int len = strlen(rom);
 	launchargv[0] = (char*)malloc(len + 1); strcpy(launchargv[0], rom);
 	launchargv[1] = NULL;
-	unload_modules();
-	exitspawn((const char*)snes_self, (char* const*)launchargv, NULL, NULL, 0, 64, SYS_PROCESS_PRIMARY_STACK_SIZE_512K);
+
+	printf("access rights...\n");
+	ret = sceNpDrmIsAvailable2(&k_licensee, "/dev_hdd0/game/SNES90000/USRDIR/EBOOT.BIN");
+	if (ret != CELL_OK)
+	{
+		printf("You don't have the right to access this file. error 0x%08x\n", ret);
+	}
+	printf("k_licensee: %d\n", k_licensee);
+
+	/* print launcher pid */
+	printf("launcher pid = 0x%08x\n", sys_process_getpid());
+
+	/* spawn new process with sceNpDrmProcessExitSpawn2() */
+	printf("spawn new process '%s'\n\n", "/dev_hdd0/game/SNES90000/USRDIR/EBOOT.BIN");
+	ret = sceNpDrmProcessExitSpawn2(&k_licensee, "/dev_hdd0/game/SNES90000/USRDIR/EBOOT.BIN",
+				(const char** const)launchargv, NULL,
+				(sys_addr_t)spawn_data, SPAWN_TEST_DATA_SIZE,
+				CREATED_PROC_PRIO, SYS_PROCESS_PRIMARY_STACK_SIZE_64K);
+
+	/* could not spawn new process */
+	printf("Spawn error: 0x%08x\n", ret);
 }
 
 bool is_genp(char *rom)
@@ -6268,6 +6449,9 @@ static int load_modules()
 	ret = cellSysmoduleLoadModule(CELL_SYSMODULE_NET);
 	if (ret < 0) return ret; else unload_mod|=16;
 
+	ret = cellSysmoduleLoadModule(CELL_SYSMODULE_SYSUTIL_NP);
+	if (ret < 0) return ret;
+
 	cellNetCtlInit();
 	net_available = (cellSysmoduleLoadModule(CELL_SYSMODULE_HTTP)==CELL_OK);
 	net_available = (sys_net_initialize_network()==0) | net_available;
@@ -7196,6 +7380,51 @@ int load_png_texture(u8 *data, char *name, uint16_t _DW)
 	return ok;
 }
 
+static void mip_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int scaleF)
+{
+	uint32_t pos_to = 0, pos_from = 0, cline=0, scale, cscale;
+	uint32_t lines=0;
+
+	if(scaleF<0)
+	{
+		scale=(-1)*scaleF;
+		for(lines=0; lines<height; lines+=scale)
+		{
+			pos_from = lines * width * 4;
+			for(cline=0; cline<(width*4); cline+=(4*scale))
+			{
+				memcpy(buffer_to + pos_to, buffer_from + pos_from + cline, 4);
+				pos_to+=4;
+			}
+		}
+	}
+	else
+	{
+		scale=scaleF;
+
+		for(lines=0; lines<height; lines++)
+		{
+			pos_from = lines * width * 4;
+			for(cline=0; cline<(width*4); cline+=4)
+			{
+				for(cscale=0; cscale<scale; cscale++)
+				{
+					memcpy(buffer_to + pos_to, buffer_from + pos_from + cline, 4);
+					pos_to+=4;
+				}
+			}
+
+			for(cscale=0; cscale<(scale-1); cscale++)
+			{
+				memcpy(buffer_to + pos_to, buffer_to + pos_to - width * scale * 4, width * scale * 4);
+				pos_to+=width * scale * 4;
+			}
+		}
+
+	}
+
+}
+
 int load_raw_texture(u8 *data, char *name, uint16_t _DW)
 {
 		FILE *fpA;
@@ -7977,53 +8206,7 @@ void put_reflection( uint8_t *buffer_to, uint32_t Twidth, uint32_t Theight, uint
 
 }
 
-
-void mip_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int scaleF)
-{
-	uint32_t pos_to = 0, pos_from = 0, cline=0, scale, cscale;
-	uint32_t lines=0;
-
-	if(scaleF<0)
-	{
-		scale=(-1)*scaleF;
-		for(lines=0; lines<height; lines+=scale)
-		{
-			pos_from = lines * width * 4;
-			for(cline=0; cline<(width*4); cline+=(4*scale))
-			{
-				memcpy(buffer_to + pos_to, buffer_from + pos_from + cline, 4);
-				pos_to+=4;
-			}
-		}
-	}
-	else
-	{
-		scale=scaleF;
-
-		for(lines=0; lines<height; lines++)
-		{
-			pos_from = lines * width * 4;
-			for(cline=0; cline<(width*4); cline+=4)
-			{
-				for(cscale=0; cscale<scale; cscale++)
-				{
-					memcpy(buffer_to + pos_to, buffer_from + pos_from + cline, 4);
-					pos_to+=4;
-				}
-			}
-
-			for(cscale=0; cscale<(scale-1); cscale++)
-			{
-				memcpy(buffer_to + pos_to, buffer_to + pos_to - width * scale * 4, width * scale * 4);
-				pos_to+=width * scale * 4;
-			}
-		}
-
-	}
-
-}
-
-void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, int y,  int wx, int wy, uint32_t c_BRI, int use_grayscale, int iterations, int p_range)
+static void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, int y,  int wx, int wy, uint32_t c_BRI, int use_grayscale, int iterations, int p_range)
 {
 	int p_step = 4 * p_range;
 	int row	 = width * p_step;
@@ -8336,12 +8519,12 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						{
 							if(_dir_mode==1)
 							{
-								if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y-0.005f)*1080)+1, (uint8_t*) str, scale*1.1f, scale, slant, step, color );
+								if(it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y-0.005f)*1080)+1, (uint8_t*) str, scale*1.1f, scale, slant, step, color );
 								if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.1f, scale, slant, step, color2 );
 							}
 							else
 							{
-								if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y+0.001f)*1080)+2, (uint8_t*) str, scale*1.3f, scale, slant, step, color );
+								if(it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y+0.001f)*1080)+2, (uint8_t*) str, scale*1.3f, scale, slant, step, color );
 								if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.001f)*1080), (uint8_t*) str, scale*1.3f, scale, slant, step, color2 );
 							}
 
@@ -8354,7 +8537,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						if(opaq>0x020 || i==selected)
 						{
 
-							if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y-0.005f)*1080)+2, (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color );
+							if(it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y-0.005f)*1080)+2, (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color );
 							if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color2 );
 						}
 					}
@@ -8368,7 +8551,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						if(0.01125f*(float)(strlen(str))>len) len=0.01125f*(float)(strlen(str));
 						if(opaq>0x020 || i==selected)
 						{
-							if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y+0.022f)*1080)+1, (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color );
+							if(it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y+0.022f)*1080)+1, (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color );
 							if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.022f)*1080), (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color2 );
 						}
 					}
@@ -8413,26 +8596,6 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 //FONTS
 
 
-void print_label(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont)
-{
-	if(max_ttf_label<512)
-	{
-		ttf_label[max_ttf_label].x = x;
-		ttf_label[max_ttf_label].y = y;
-		ttf_label[max_ttf_label].scale = scale;
-		ttf_label[max_ttf_label].color = color;
-		ttf_label[max_ttf_label].weight = weight;
-		ttf_label[max_ttf_label].slant = slant;
-		ttf_label[max_ttf_label].font = ufont;
-		ttf_label[max_ttf_label].hscale = 1.0f;
-		ttf_label[max_ttf_label].vscale = 1.0f;
-		ttf_label[max_ttf_label].centered = 0;
-		ttf_label[max_ttf_label].cut = 0.0f;
-
-		sprintf(ttf_label[max_ttf_label].label, "%s", str1p);
-		max_ttf_label++;
-	}
-}
 
 void print_label_width(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont, float cut)
 {
@@ -8455,145 +8618,7 @@ void print_label_width(float x, float y, float scale, uint32_t color, char *str1
 	}
 }
 
-void print_label_ex(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont, float hscale, float vscale, int centered)
-{
-	if(max_ttf_label<512)
-	{
-		ttf_label[max_ttf_label].x = x;
-		ttf_label[max_ttf_label].y = y;
-		ttf_label[max_ttf_label].scale = scale;
-		ttf_label[max_ttf_label].color = color;
-		ttf_label[max_ttf_label].weight = weight;
-		ttf_label[max_ttf_label].slant = slant;
-		ttf_label[max_ttf_label].font = ufont;
-		ttf_label[max_ttf_label].hscale = hscale;
-		ttf_label[max_ttf_label].vscale = vscale;
-		ttf_label[max_ttf_label].centered = centered;
-		ttf_label[max_ttf_label].cut = 0.0f;
-		sprintf(ttf_label[max_ttf_label].label, "%s", str1p);
-		max_ttf_label++;
-	}
-}
 
-void flush_ttf(uint8_t *buffer, uint32_t _V_WIDTH, uint32_t _V_HEIGHT)
-{
-	if(!max_ttf_label) return;
-		uint32_t color;
-		CellFontRenderer* renderer;
-		CellFontRenderSurface* surf;
-		CellFont Font[1];
-		CellFont* cf;
-		int fn;
-
-//		uint8_t *buffer = NULL;
-//		buffer=(uint8_t*)(color_base_addr)+video_buffer*(c_frame_index);
-
-		surf     = &RenderWork.Surface;
-		cellFontRenderSurfaceInit( surf,
-		                           buffer, _V_WIDTH*4, 4,
-		                           _V_WIDTH, _V_HEIGHT );
-
-		cellFontRenderSurfaceSetScissor( surf, 0, 0, _V_WIDTH, _V_HEIGHT );
-		renderer = &RenderWork.Renderer;
-		fn = FONT_SYSTEM_5;
-
-		if(user_font==1 || user_font>19) fn = FONT_SYSTEM_GOTHIC_JP;
-		else if (user_font==2) fn = FONT_SYSTEM_GOTHIC_LATIN;
-		else if (user_font==3) fn = FONT_SYSTEM_SANS_SERIF;
-		else if (user_font==4) fn = FONT_SYSTEM_SERIF;
-		else if (user_font>4 && user_font<10) fn=user_font+5;
-		else if (user_font>14 && user_font<20) fn=user_font;
-
-		int ret;
-
-		if(ttf_label[0].font!=0) fn=ttf_label[0].font;
-		ret	= Fonts_AttachFont( fonts, fn, &Font[0] );
-
-		if ( ret == CELL_OK ) cf = &Font[0];
-		else                  cf = (CellFont*)0;
-
-		if ( cf ) {
-			static float textScale = 1.00f;
-			static float weight = 1.00f;
-			static float slant = 0.00f;
-			float surfW = (float)_V_WIDTH;
-			float surfH = (float)_V_HEIGHT;
-			float textW;// = surfW;
-			float textH;// = surfH;
-			float step = 0.f;
-			float lineH, baseY;
-			float w;
-			textW = surfW * textScale;
-			textH = surfH * textScale;
-			uint8_t* utf8Str0;
-			float scale, scaley, x, y;
-			int cl=0;
-
-			for(cl=0; cl<max_ttf_label; cl++)
-			{
-				if(cl==0) Fonts_BindRenderer( cf, renderer );
-				slant  = ttf_label[cl].slant;
-				weight = ttf_label[cl].weight;
-
-				scale  = 30.0f * ttf_label[cl].scale * (surfW/1920.0f) * ttf_label[cl].hscale;
-				scaley = 30.0f * ttf_label[cl].scale * (surfH/1080.0f) * ttf_label[cl].vscale;
-
-				Fonts_SetFontScale( cf, scale );
-				Fonts_SetFontEffectWeight( cf, weight );
-				Fonts_SetFontEffectSlant( cf, slant );
-				ret = Fonts_GetFontHorizontalLayout( cf, &lineH, &baseY );
-
-				utf8Str0 = (uint8_t*) ttf_label[cl].label;
-				x = ttf_label[cl].x;
-				y = ttf_label[cl].y;
-				color = ttf_label[cl].color; //0x80ffffff;//
-
-				if ( ret == CELL_OK ) {
-
-					w = Fonts_GetPropTextWidth( cf, utf8Str0, scale, scaley, slant, step, NULL, NULL );
-
-					if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
-					else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
-
-
-					if ( ( (w+(x*surfW)) > textW) && (ttf_label[cl].cut==0.0f) && ttf_label[cl].centered!=2) {
-						float ratio;
-
-						scale = Fonts_GetPropTextWidthRescale( scale, w, (textW-(x*surfW)), &ratio );
-						w     *= ratio;
-						//baseY *= ratio;
-						//lineH *= ratio;
-						step  *= ratio;
-						if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
-						else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
-
-					}
-					else if ( (ttf_label[cl].cut>0.0f) && (w>((int)(ttf_label[cl].cut*(float)_V_WIDTH))) ) {
-						float ratio;
-
-						scale = Fonts_GetPropTextWidthRescale( scale, w, ((ttf_label[cl].cut*(float)_V_WIDTH)), &ratio );
-						w     *= ratio;
-						//baseY *= ratio;
-						//lineH *= ratio;
-						step  *= ratio;
-
-						if(ttf_label[cl].centered==1) x=(ttf_label[cl].x - (w/2.0f)/surfW);
-						else if(ttf_label[cl].centered==2) x=(ttf_label[cl].x - (w)/surfW); //right justified
-
-					}
-
-					if(cover_mode == MODE_XMMB) Fonts_RenderPropText( cf, surf, (int)(x*surfW)+2, (int)(y*surfH)+2, utf8Str0, scale, scaley, slant, step, 0x10101010 );
-					Fonts_RenderPropText( cf, surf, (int)(x*surfW), (int)(y*surfH), utf8Str0, scale, scaley, slant, step, color );//(color & 0x00ffffff)
-
-				}
-			}
-					Fonts_UnbindRenderer( cf );
-
-			Fonts_DetachFont( cf );
-		}
-
-	max_ttf_label=0;
-}
 
 void draw_boot_flags(u32 gflags, bool is_locked, int selected)
 {
@@ -8699,6 +8724,126 @@ void draw_reqd_flags(u32 gflags, bool is_locked, int selected)
 			else			put_texture_with_alpha( text_FONT, text_DOX+(dox_rb1u_x	*4 + dox_rb1u_y	* dox_width*4), dox_rb1u_w,	dox_rb1u_h, dox_width, 240, 775, 0, 0);
 		}
 		if(selected) put_texture_with_alpha( text_FONT, text_DOX+(dox_rb3s_x	*4 + dox_rb3s_y	* dox_width*4), dox_rb3s_w,	dox_rb3s_h, dox_width, 240, 695+((selected-1)*40), 0, 0);
+}
+
+static int open_select_menu(char *_caption, int _width, t_opt_list *list, int _max, u8 *buffer, int _max_entries, int _centered)
+{
+	if(_max_entries>16) _max_entries=16;
+	u8 *text_LIST = NULL;
+	text_LIST = text_bmpUBG + (FB(1));
+	int line_h = 30;
+	int _height = (_max_entries+5) * line_h;
+
+	int last_sel=-1;
+	int first=0;
+	int sel=0;
+	char filename[1024];
+	int _menu_font = mui_font;		//15;
+	float _y_scale = 0.7f;	//1.0f;
+	bool is_lang = (strstr(_caption, (const char*) STR_SEL_LANG)!=NULL);
+	if(is_lang)
+	{
+		sel=0;
+		for(int n=0; n<MAX_LOCALES; n++) if(locales[n].val==mm_locale) {sel=n; break;}
+		first=sel-_max_entries+2;
+		if(first<0) first=0;
+	}
+
+	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
+	load_texture(text_LIST+1512000, filename, 600);
+	change_opacity(text_LIST+1512000, 50, 600*630*4);
+	while(1)
+	{
+
+		pad_read();
+		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
+		if ( (new_pad & BUTTON_CROSS) )  return sel;
+
+		if ( (new_pad & BUTTON_DOWN))
+		{
+			sel++;
+			if(sel>=_max) sel=0;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if ( (new_pad & BUTTON_UP))
+		{
+			sel--;
+			if(sel<0) sel=_max-1;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if(last_sel!=sel)
+		{
+			memcpy(text_LIST, text_LIST+1512000, 1512000);
+			max_ttf_label=0;
+			print_label_ex( 0.5f, 0.05f, 1.0f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, mui_font, 1.0f/((float)(_width/1920.f)), 1.0f/((float)(_height/1080.f)), 1);
+			if(is_lang)	flush_ttf(text_LIST, _width, _height);
+
+			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
+			{
+				if(is_lang)
+					_menu_font = ( (locales[n].font_id>4 && locales[n].font_id<10) ? (locales[n].font_id+5) : locales[n].font_id);
+				else
+					_menu_font = mui_font;
+
+				if(_centered)
+				{
+					if(n==sel)
+						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xffe0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 1);
+					else
+						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 1 );
+				}
+				else
+				{
+					if(n==sel)
+						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 0);
+					else
+						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 0 );
+				}
+				if(is_lang)	flush_ttf(text_LIST, _width, _height);
+			}
+
+			print_label_ex( 0.7f, ((float)(_height-line_h*2)/(float)_height)+0.01f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_APPLY, 1.00f, 0.0f, mui_font, 0.5f/((float)(_width/1920.f)), 0.4f/((float)(_height/1080.f)), 0);
+			flush_ttf(text_LIST, _width, _height);
+			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.7f*_width)-dox_cross_w-5), _height-line_h*2);
+			last_sel=sel;
+		}
+
+		ClearSurface();
+
+		if(cover_mode == MODE_XMMB && xmb_icon==2)
+		{
+			if(!use_drops && xmb_sparks!=0) draw_stars();
+
+			draw_xmb_bg();
+			if(use_drops && xmb_sparks!=0) draw_stars();
+
+			draw_xmb_clock(xmb_clock, 0);
+			draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, 0);
+		}
+
+		else
+		{
+			set_texture( buffer, 1920, 1080);
+			display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
+		}
+
+		set_texture(text_LIST, _width, _height);
+		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, 0.0f, _width, _height);
+
+		flip();
+
+
+		mouseX+=mouseXD; mouseY+=mouseYD;
+		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
+		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
+
+	}
+
+	return -1;
 }
 
 int open_submenu(uint8_t *buffer, int *_game_sel)
@@ -13693,6 +13838,217 @@ int mod_mount_table(const char *new_path, int _mode) //mode 0/1 = reset/change
 	return 1;
 }
 
+static int open_dd_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries)
+{
+	(void) _x;
+	(void) _y;
+
+	u8 _menu_font=17;
+	float y_scale=0.85f;
+	if(mm_locale) {_menu_font=mui_font; y_scale=0.7f;}
+
+	if(_max_entries>16) _max_entries=16;
+	u8 *text_LIST = NULL;
+	text_LIST = text_FONT;
+	int line_h = 26;
+	int _height = 315;//(_max_entries+5) * line_h;
+
+	int last_sel=-1;
+	int first=0;
+	int sel=0;
+	char filename[1024];
+	char string1[1024];
+
+	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
+	load_texture(text_LIST+756000, filename, 600);
+	mip_texture(text_LIST+756000, text_LIST+756000, 600, 630, -2);
+	change_opacity(text_LIST+756000, 40, 300*315*4);
+
+	while(1)
+	{
+
+		pad_read();
+		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
+		if ( (new_pad & BUTTON_CROSS) )  return sel;
+
+		if ( (new_pad & BUTTON_DOWN))
+		{
+			sel++;
+			if(sel>=_max) sel=0;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if ( (new_pad & BUTTON_UP))
+		{
+			sel--;
+			if(sel<0) sel=_max-1;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if(last_sel!=sel)
+		{
+			memcpy(text_LIST, text_LIST+756000, 756000);
+			max_ttf_label=0;
+			print_label_ex( 0.53f, 0.05f, 0.62f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, 0, 1.0f/((float)(_width/1920.f)), (1.2f)/((float)(_height/1080.f)), 1);
+			flush_ttf(text_LIST, _width, _height);
+
+			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
+			{
+				if(n==sel)
+					print_label_ex( 0.055f, ((float)((n-first+2.2f)*line_h)/(float)_height)-0.007f, 1.2f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.68f/((float)(_width/1920.f)), (y_scale)/((float)(_height/1080.f)), 0);
+				else
+					print_label_ex( 0.120f, ((float)((n-first+2.2f)*line_h)/(float)_height), 0.85f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), (y_scale+0.1f)/((float)(_height/1080.f)), 0 );
+				flush_ttf(text_LIST, _width, _height);
+			}
+
+			print_label_ex( 0.6f, ((float)(_height-line_h*2)/(float)_height)+0.0326f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_CONFIRM, 1.04f, 0.0f, _menu_font, 0.5f/((float)(_width/1920.f)), 0.5f/((float)(_height/1080.f)), 0);
+			flush_ttf(text_LIST, _width, _height);
+			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.6f*_width)-dox_cross_w-5), _height-line_h*2+4);
+			last_sel=sel;
+		}
+
+		ClearSurface();
+
+		draw_fileman();
+
+		set_texture(text_LIST, _width, _height);
+		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, -0.3f, _width, _height);
+
+		time ( &rawtime );	timeinfo = localtime ( &rawtime );
+		if(date_format==0) sprintf(string1, "%02d/%02d/%04d", timeinfo->tm_mday, timeinfo->tm_mon+1, timeinfo->tm_year+1900);
+		else if(date_format==1) sprintf(string1, "%02d/%02d/%04d", timeinfo->tm_mon+1, timeinfo->tm_mday, timeinfo->tm_year+1900);
+		else if(date_format==2) sprintf(string1, "%04d/%02d/%02d", timeinfo->tm_year+1900, timeinfo->tm_mon+1, timeinfo->tm_mday );
+
+		cellDbgFontPrintf( 0.83f, 0.895f, 0.70f ,COL_HEXVIEW, "%s\n %s:%02d:%02d ", string1, tmhour(timeinfo->tm_hour), timeinfo->tm_min, timeinfo->tm_sec);
+
+		flip();
+
+
+		mouseX+=mouseXD; mouseY+=mouseYD;
+		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
+		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
+
+	}
+
+	return -1;
+}
+
+static int context_menu(char *_capt, int _type, char *c_pane, char *o_pane)
+{
+			char _cap[512];
+			sprintf(_cap, "%s", _capt); _cap[28]='.';_cap[29]='.';_cap[30]='.';_cap[31]=0;
+			opt_list_max=0;
+			u8 multiple_entries=0;
+			if(!strcmp(_cap, "..")) goto skip_dd;
+			if(!strcmp(_cap, (const char*) STR_CM_MULDIR) || !strcmp(_cap, (const char*) STR_CM_MULFILE)) multiple_entries=1;
+
+			if(strstr(o_pane, "/dev_bdvd")==NULL && strstr(o_pane, "/pvd_usb")==NULL && strstr(o_pane, "/app_home")==NULL && strlen(o_pane)>1 && strstr(_cap, "net_host")==NULL && strcmp(c_pane, o_pane))
+			{
+				if( ( (strstr(c_pane, "/dev_bdvd")==NULL && strcmp(_cap, "dev_bdvd")) || (strstr(c_pane, "/dev_bdvd")!=NULL /*&& exist((char*)"/dev_bdvd/PS3_GAME")*/)) && (disable_options==0 || disable_options==1) )
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_COPY);
+					sprintf(opt_list[opt_list_max].value, "%s", "copy"); opt_list_max++;
+				}
+
+				if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1  && strlen(o_pane)>1
+					&& !(!strcmp(c_pane, "/dev_hdd0") && (!strcmp(_cap, "game") || !strcmp(_cap, "vsh") || !strcmp(_cap, "home") || !strcmp(_cap, "mms") || !strcmp(_cap, "vm") || !strcmp(_cap, "etc") || !strcmp(_cap, "drm"))) && disable_options==0)
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_MOVE);
+					sprintf(opt_list[opt_list_max].value, "%s", "move"); opt_list_max++;
+				}
+			}
+
+			if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1
+				&& !(!strcmp(c_pane, "/dev_hdd0") && (!strcmp(_cap, "game") || !strcmp(_cap, "vsh") || !strcmp(_cap, "home") || !strcmp(_cap, "mms") || !strcmp(_cap, "vm") || !strcmp(_cap, "etc") || !strcmp(_cap, "drm"))))
+			{
+				if(strstr(c_pane, "/net_host")==NULL && !multiple_entries)
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_RENAME);
+					sprintf(opt_list[opt_list_max].value, "%s", "rename"); opt_list_max++;
+				}
+
+				if( (strstr(c_pane, "/net_host")==NULL || (strstr(c_pane, "/net_host")!=NULL && _type==1)) && (disable_options!=1 && disable_options!=3))
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_DELETE);
+					sprintf(opt_list[opt_list_max].value, "%s", "delete"); opt_list_max++;
+				}
+			}
+
+			if(strcmp(c_pane, o_pane) && strstr(c_pane, "/dev_hdd0")!=NULL && strstr(o_pane, "/dev_hdd0")!=NULL && !multiple_entries)
+			{
+				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_SHORTCUT);
+				sprintf(opt_list[opt_list_max].value, "%s", "shortcut"); opt_list_max++;
+			}
+
+			if(!strcmp(_cap, "PS3_GAME") && !multiple_entries)
+			{
+				if(strstr(c_pane, "/dev_hdd0")!=NULL)
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_SHADOWPKG);
+					sprintf(opt_list[opt_list_max].value, "%s", "pkgshortcut"); opt_list_max++;
+				}
+				if(strstr(c_pane, "/dev_usb")!=NULL)
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_BDMIRROR);
+					sprintf(opt_list[opt_list_max].value, "%s", "bdmirror"); opt_list_max++;
+				}
+			}
+
+			if(strstr(c_pane, "/net_host")!=NULL || strstr(_cap, "net_host")!=NULL)
+			{
+				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_NETHOST);
+				sprintf(opt_list[opt_list_max].value, "%s", "nethost"); opt_list_max++;
+			}
+
+			if(_type==1 && !multiple_entries)
+			{
+				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_HEXVIEW);
+				sprintf(opt_list[opt_list_max].value, "%s", "view"); opt_list_max++;
+			}
+
+			if(_type==0 && strstr(c_pane, "/ps3_home")==NULL && strstr(c_pane, "/net_host")==NULL && !multiple_entries)
+			{
+				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_PROPS);
+				sprintf(opt_list[opt_list_max].value, "%s", "test"); opt_list_max++;
+
+				if( (!strcmp(_capt, "dev_bdvd") || !strcmp(_capt, "dev_ps2disc")) && (disable_options==0 || disable_options==1) && strcmp(c_pane, o_pane) && ss_patched)
+				{
+					sprintf(opt_list[opt_list_max].label, "%s", STR_ISO);
+					sprintf(opt_list[opt_list_max].value, "%s", "iso"); opt_list_max++;
+				}
+
+			}
+
+skip_dd:
+
+			if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1)
+			{
+				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_NEWDIR);
+				sprintf(opt_list[opt_list_max].value, "%s", "newfolder"); opt_list_max++;
+			}
+
+			if(opt_list_max)
+			{
+				use_analog=0;
+				//use_depth=0;
+				float b_mX=mouseX;
+				float b_mY=mouseY;
+				if(mouseX>0.84f) mouseX=0.84f;
+				if(mouseY>0.60f) mouseY=0.60f;
+				int ret_f=open_dd_menu( _cap, 300, opt_list, opt_list_max, 660, 225, 16);
+				//use_depth=1;
+				use_analog=0;
+				mouseX=b_mX;
+				mouseY=b_mY;
+				return ret_f;
+			}
+
+//just_leave_dd:
+	new_pad=0;
+	return -1;
+}
 
 void draw_dir_pane( t_dir_pane *list, int pane_size, int first_to_show, int max_lines, float x_offset)
 {
@@ -17189,6 +17545,110 @@ void load_xmb_bg()
 	}
 }
 
+static int open_list_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries, int _centered)
+{
+	(void) _x;
+	(void) _y;
+	char filename[1024];
+
+	if(_max_entries>16) _max_entries=16;
+	u8 *text_LIST = NULL;
+	text_LIST = text_FONT;
+	int line_h = 30;
+	int _height = (_max_entries+5) * line_h;
+
+	int last_sel=-1;
+	int first=0;
+	int sel=0;
+	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
+	load_texture(text_LIST+1512000, filename, 600);
+	change_opacity(text_LIST+1512000, 50, 600*630*4);
+	float y_scale=1.0f;
+	u8 _menu_font=15;
+	if(mm_locale)
+	{
+		_menu_font=mui_font;
+		y_scale=0.8f;
+	}
+
+	while(1)
+	{
+
+		pad_read();
+		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
+		if ( (new_pad & BUTTON_CROSS) )  return sel;
+
+		if ( (new_pad & BUTTON_DOWN))
+		{
+			sel++;
+			if(sel>=_max) sel=0;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if ( (new_pad & BUTTON_UP))
+		{
+			sel--;
+			if(sel<0) sel=_max-1;
+			first=sel-_max_entries+2;
+			if(first<0) first=0;
+		}
+
+		if(last_sel!=sel)
+		{
+			memcpy(text_LIST, text_LIST+1512000, 1512000);
+			max_ttf_label=0;
+			print_label_ex( 0.5f, 0.05f, 1.0f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), 1.0f/((float)(_height/1080.f)), 1);
+
+			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
+			{
+				if(_centered)
+				{
+					if(n==sel)
+						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 1);
+					else
+						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.00f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 1 );
+				}
+				else
+				{
+					if(n==sel)
+						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 0);
+					else
+						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.00f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 0 );
+				}
+			}
+
+			print_label_ex( 0.7f, ((float)(_height-line_h*2)/(float)_height)+0.01f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_APPLY, 1.00f, 0.0f, _menu_font, 0.5f/((float)(_width/1920.f)), (y_scale/2.f)/((float)(_height/1080.f)), 0);
+			flush_ttf(text_LIST, _width, _height);
+			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.7f*_width)-dox_cross_w-5), _height-line_h*2);
+			last_sel=sel;
+		}
+
+		ClearSurface();
+		if(!use_drops && xmb_sparks!=0) draw_stars();
+
+		draw_xmb_bg();
+		if(use_drops && xmb_sparks!=0) draw_stars();
+
+		draw_xmb_clock(xmb_clock, 0);
+		draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, 0);
+
+		set_texture(text_LIST, _width, _height);
+		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, 0.0f, _width, _height);
+
+
+		flip();
+
+
+		mouseX+=mouseXD; mouseY+=mouseYD;
+		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
+		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
+
+	}
+
+	return -1;
+}
+
 void select_theme()
 {
 		slide_xmb_left(1);
@@ -17356,121 +17816,6 @@ int delete_game_cache()
 
 
 
-
-int context_menu(char *_capt, int _type, char *c_pane, char *o_pane)
-{
-			char _cap[512];
-			sprintf(_cap, "%s", _capt); _cap[28]='.';_cap[29]='.';_cap[30]='.';_cap[31]=0;
-			opt_list_max=0;
-			u8 multiple_entries=0;
-			if(!strcmp(_cap, "..")) goto skip_dd;
-			if(!strcmp(_cap, (const char*) STR_CM_MULDIR) || !strcmp(_cap, (const char*) STR_CM_MULFILE)) multiple_entries=1;
-
-			if(strstr(o_pane, "/dev_bdvd")==NULL && strstr(o_pane, "/pvd_usb")==NULL && strstr(o_pane, "/app_home")==NULL && strlen(o_pane)>1 && strstr(_cap, "net_host")==NULL && strcmp(c_pane, o_pane))
-			{
-				if( ( (strstr(c_pane, "/dev_bdvd")==NULL && strcmp(_cap, "dev_bdvd")) || (strstr(c_pane, "/dev_bdvd")!=NULL /*&& exist((char*)"/dev_bdvd/PS3_GAME")*/)) && (disable_options==0 || disable_options==1) )
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_COPY);
-					sprintf(opt_list[opt_list_max].value, "%s", "copy"); opt_list_max++;
-				}
-
-				if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1  && strlen(o_pane)>1
-					&& !(!strcmp(c_pane, "/dev_hdd0") && (!strcmp(_cap, "game") || !strcmp(_cap, "vsh") || !strcmp(_cap, "home") || !strcmp(_cap, "mms") || !strcmp(_cap, "vm") || !strcmp(_cap, "etc") || !strcmp(_cap, "drm"))) && disable_options==0)
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_MOVE);
-					sprintf(opt_list[opt_list_max].value, "%s", "move"); opt_list_max++;
-				}
-			}
-
-			if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1
-				&& !(!strcmp(c_pane, "/dev_hdd0") && (!strcmp(_cap, "game") || !strcmp(_cap, "vsh") || !strcmp(_cap, "home") || !strcmp(_cap, "mms") || !strcmp(_cap, "vm") || !strcmp(_cap, "etc") || !strcmp(_cap, "drm"))))
-			{
-				if(strstr(c_pane, "/net_host")==NULL && !multiple_entries)
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_RENAME);
-					sprintf(opt_list[opt_list_max].value, "%s", "rename"); opt_list_max++;
-				}
-
-				if( (strstr(c_pane, "/net_host")==NULL || (strstr(c_pane, "/net_host")!=NULL && _type==1)) && (disable_options!=1 && disable_options!=3))
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_DELETE);
-					sprintf(opt_list[opt_list_max].value, "%s", "delete"); opt_list_max++;
-				}
-			}
-
-			if(strcmp(c_pane, o_pane) && strstr(c_pane, "/dev_hdd0")!=NULL && strstr(o_pane, "/dev_hdd0")!=NULL && !multiple_entries)
-			{
-				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_SHORTCUT);
-				sprintf(opt_list[opt_list_max].value, "%s", "shortcut"); opt_list_max++;
-			}
-
-			if(!strcmp(_cap, "PS3_GAME") && !multiple_entries)
-			{
-				if(strstr(c_pane, "/dev_hdd0")!=NULL)
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_SHADOWPKG);
-					sprintf(opt_list[opt_list_max].value, "%s", "pkgshortcut"); opt_list_max++;
-				}
-				if(strstr(c_pane, "/dev_usb")!=NULL)
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_CM_BDMIRROR);
-					sprintf(opt_list[opt_list_max].value, "%s", "bdmirror"); opt_list_max++;
-				}
-			}
-
-			if(strstr(c_pane, "/net_host")!=NULL || strstr(_cap, "net_host")!=NULL)
-			{
-				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_NETHOST);
-				sprintf(opt_list[opt_list_max].value, "%s", "nethost"); opt_list_max++;
-			}
-
-			if(_type==1 && !multiple_entries)
-			{
-				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_HEXVIEW);
-				sprintf(opt_list[opt_list_max].value, "%s", "view"); opt_list_max++;
-			}
-
-			if(_type==0 && strstr(c_pane, "/ps3_home")==NULL && strstr(c_pane, "/net_host")==NULL && !multiple_entries)
-			{
-				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_PROPS);
-				sprintf(opt_list[opt_list_max].value, "%s", "test"); opt_list_max++;
-
-				if( (!strcmp(_capt, "dev_bdvd") || !strcmp(_capt, "dev_ps2disc")) && (disable_options==0 || disable_options==1) && strcmp(c_pane, o_pane) && ss_patched)
-				{
-					sprintf(opt_list[opt_list_max].label, "%s", STR_ISO);
-					sprintf(opt_list[opt_list_max].value, "%s", "iso"); opt_list_max++;
-				}
-
-			}
-
-skip_dd:
-
-			if(strstr(c_pane, "/dev_bdvd")==NULL && strstr(c_pane, "/pvd_usb")==NULL && strstr(c_pane, "/app_home")==NULL && strstr(c_pane, "/ps3_home")==NULL && strlen(c_pane)>1)
-			{
-				sprintf(opt_list[opt_list_max].label, "%s", STR_CM_NEWDIR);
-				sprintf(opt_list[opt_list_max].value, "%s", "newfolder"); opt_list_max++;
-			}
-
-			if(opt_list_max)
-			{
-				use_analog=0;
-				//use_depth=0;
-				float b_mX=mouseX;
-				float b_mY=mouseY;
-				if(mouseX>0.84f) mouseX=0.84f;
-				if(mouseY>0.60f) mouseY=0.60f;
-				int ret_f=open_dd_menu( _cap, 300, opt_list, opt_list_max, 660, 225, 16);
-				//use_depth=1;
-				use_analog=0;
-				mouseX=b_mX;
-				mouseY=b_mY;
-				return ret_f;
-			}
-
-//just_leave_dd:
-	new_pad=0;
-	return -1;
-}
 
 void apply_theme (const char *theme_file, const char *theme_path)
 {
@@ -18034,231 +18379,7 @@ void change_opacity(u8 *buffer, int delta, u32 size)
 
 }
 
-int open_select_menu(char *_caption, int _width, t_opt_list *list, int _max, u8 *buffer, int _max_entries, int _centered)
-{
-	if(_max_entries>16) _max_entries=16;
-	u8 *text_LIST = NULL;
-	text_LIST = text_bmpUBG + (FB(1));
-	int line_h = 30;
-	int _height = (_max_entries+5) * line_h;
-
-	int last_sel=-1;
-	int first=0;
-	int sel=0;
-	char filename[1024];
-	int _menu_font = mui_font;		//15;
-	float _y_scale = 0.7f;	//1.0f;
-	bool is_lang = (strstr(_caption, (const char*) STR_SEL_LANG)!=NULL);
-	if(is_lang)
-	{
-		sel=0;
-		for(int n=0; n<MAX_LOCALES; n++) if(locales[n].val==mm_locale) {sel=n; break;}
-		first=sel-_max_entries+2;
-		if(first<0) first=0;
-	}
-
-	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
-	load_texture(text_LIST+1512000, filename, 600);
-	change_opacity(text_LIST+1512000, 50, 600*630*4);
-	while(1)
-	{
-
-		pad_read();
-		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
-		if ( (new_pad & BUTTON_CROSS) )  return sel;
-
-		if ( (new_pad & BUTTON_DOWN))
-		{
-			sel++;
-			if(sel>=_max) sel=0;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if ( (new_pad & BUTTON_UP))
-		{
-			sel--;
-			if(sel<0) sel=_max-1;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if(last_sel!=sel)
-		{
-			memcpy(text_LIST, text_LIST+1512000, 1512000);
-			max_ttf_label=0;
-			print_label_ex( 0.5f, 0.05f, 1.0f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, mui_font, 1.0f/((float)(_width/1920.f)), 1.0f/((float)(_height/1080.f)), 1);
-			if(is_lang)	flush_ttf(text_LIST, _width, _height);
-
-			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
-			{
-				if(is_lang)
-					_menu_font = ( (locales[n].font_id>4 && locales[n].font_id<10) ? (locales[n].font_id+5) : locales[n].font_id);
-				else
-					_menu_font = mui_font;
-
-				if(_centered)
-				{
-					if(n==sel)
-						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xffe0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 1);
-					else
-						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 1 );
-				}
-				else
-				{
-					if(n==sel)
-						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 0);
-					else
-						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), _y_scale/((float)(_height/1080.f)), 0 );
-				}
-				if(is_lang)	flush_ttf(text_LIST, _width, _height);
-			}
-
-			print_label_ex( 0.7f, ((float)(_height-line_h*2)/(float)_height)+0.01f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_APPLY, 1.00f, 0.0f, mui_font, 0.5f/((float)(_width/1920.f)), 0.4f/((float)(_height/1080.f)), 0);
-			flush_ttf(text_LIST, _width, _height);
-			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.7f*_width)-dox_cross_w-5), _height-line_h*2);
-			last_sel=sel;
-		}
-
-		ClearSurface();
-
-		if(cover_mode == MODE_XMMB && xmb_icon==2)
-		{
-			if(!use_drops && xmb_sparks!=0) draw_stars();
-
-			draw_xmb_bg();
-			if(use_drops && xmb_sparks!=0) draw_stars();
-
-			draw_xmb_clock(xmb_clock, 0);
-			draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, 0);
-		}
-
-		else
-		{
-			set_texture( buffer, 1920, 1080);
-			display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
-		}
-
-		set_texture(text_LIST, _width, _height);
-		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, 0.0f, _width, _height);
-
-		flip();
-
-
-		mouseX+=mouseXD; mouseY+=mouseYD;
-		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
-		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
-
-	}
-
-	return -1;
-}
-
-int open_list_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries, int _centered)
-{
-	(void) _x;
-	(void) _y;
-	char filename[1024];
-
-	if(_max_entries>16) _max_entries=16;
-	u8 *text_LIST = NULL;
-	text_LIST = text_FONT;
-	int line_h = 30;
-	int _height = (_max_entries+5) * line_h;
-
-	int last_sel=-1;
-	int first=0;
-	int sel=0;
-	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
-	load_texture(text_LIST+1512000, filename, 600);
-	change_opacity(text_LIST+1512000, 50, 600*630*4);
-	float y_scale=1.0f;
-	u8 _menu_font=15;
-	if(mm_locale)
-	{
-		_menu_font=mui_font;
-		y_scale=0.8f;
-	}
-
-	while(1)
-	{
-
-		pad_read();
-		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
-		if ( (new_pad & BUTTON_CROSS) )  return sel;
-
-		if ( (new_pad & BUTTON_DOWN))
-		{
-			sel++;
-			if(sel>=_max) sel=0;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if ( (new_pad & BUTTON_UP))
-		{
-			sel--;
-			if(sel<0) sel=_max-1;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if(last_sel!=sel)
-		{
-			memcpy(text_LIST, text_LIST+1512000, 1512000);
-			max_ttf_label=0;
-			print_label_ex( 0.5f, 0.05f, 1.0f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), 1.0f/((float)(_height/1080.f)), 1);
-
-			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
-			{
-				if(_centered)
-				{
-					if(n==sel)
-						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 1);
-					else
-						print_label_ex( 0.5f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.00f, 0.0f, _menu_font, 1.0f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 1 );
-				}
-				else
-				{
-					if(n==sel)
-						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height)-0.011f, 1.4f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 0);
-					else
-						print_label_ex( 0.05f, ((float)((n-first+3)*line_h)/(float)_height), 1.0f, COL_XMB_SUBTITLE, list[n].label, 1.00f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), y_scale/((float)(_height/1080.f)), 0 );
-				}
-			}
-
-			print_label_ex( 0.7f, ((float)(_height-line_h*2)/(float)_height)+0.01f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_APPLY, 1.00f, 0.0f, _menu_font, 0.5f/((float)(_width/1920.f)), (y_scale/2.f)/((float)(_height/1080.f)), 0);
-			flush_ttf(text_LIST, _width, _height);
-			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.7f*_width)-dox_cross_w-5), _height-line_h*2);
-			last_sel=sel;
-		}
-
-		ClearSurface();
-		if(!use_drops && xmb_sparks!=0) draw_stars();
-
-		draw_xmb_bg();
-		if(use_drops && xmb_sparks!=0) draw_stars();
-
-		draw_xmb_clock(xmb_clock, 0);
-		draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, 0);
-
-		set_texture(text_LIST, _width, _height);
-		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, 0.0f, _width, _height);
-
-
-		flip();
-
-
-		mouseX+=mouseXD; mouseY+=mouseYD;
-		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
-		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
-
-	}
-
-	return -1;
-}
-
-int open_side_menu(int _top, int sel)
+static int open_side_menu(int _top, int sel)
 {
 	side_menu_open=true;
 	int _width=600;
@@ -18395,102 +18516,6 @@ int open_side_menu(int _top, int sel)
 
 
 
-int open_dd_menu(char *_caption, int _width, t_opt_list *list, int _max, int _x, int _y, int _max_entries)
-{
-	(void) _x;
-	(void) _y;
-
-	u8 _menu_font=17;
-	float y_scale=0.85f;
-	if(mm_locale) {_menu_font=mui_font; y_scale=0.7f;}
-
-	if(_max_entries>16) _max_entries=16;
-	u8 *text_LIST = NULL;
-	text_LIST = text_FONT;
-	int line_h = 26;
-	int _height = 315;//(_max_entries+5) * line_h;
-
-	int last_sel=-1;
-	int first=0;
-	int sel=0;
-	char filename[1024];
-	char string1[1024];
-
-	sprintf(filename, "%s/LBOX.PNG", app_usrdir);
-	load_texture(text_LIST+756000, filename, 600);
-	mip_texture(text_LIST+756000, text_LIST+756000, 600, 630, -2);
-	change_opacity(text_LIST+756000, 40, 300*315*4);
-
-	while(1)
-	{
-
-		pad_read();
-		if ( (new_pad & BUTTON_TRIANGLE) || (new_pad & BUTTON_CIRCLE) ) return -1;
-		if ( (new_pad & BUTTON_CROSS) )  return sel;
-
-		if ( (new_pad & BUTTON_DOWN))
-		{
-			sel++;
-			if(sel>=_max) sel=0;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if ( (new_pad & BUTTON_UP))
-		{
-			sel--;
-			if(sel<0) sel=_max-1;
-			first=sel-_max_entries+2;
-			if(first<0) first=0;
-		}
-
-		if(last_sel!=sel)
-		{
-			memcpy(text_LIST, text_LIST+756000, 756000);
-			max_ttf_label=0;
-			print_label_ex( 0.53f, 0.05f, 0.62f, COL_XMB_COLUMN, _caption, 1.04f, 0.0f, 0, 1.0f/((float)(_width/1920.f)), (1.2f)/((float)(_height/1080.f)), 1);
-			flush_ttf(text_LIST, _width, _height);
-
-			for(int n=first; (n<(first+_max_entries-1) && n<_max); n++)
-			{
-				if(n==sel)
-					print_label_ex( 0.055f, ((float)((n-first+2.2f)*line_h)/(float)_height)-0.007f, 1.2f, 0xf0e0e0e0, list[n].label, 1.04f, 0.0f, _menu_font, 0.68f/((float)(_width/1920.f)), (y_scale)/((float)(_height/1080.f)), 0);
-				else
-					print_label_ex( 0.120f, ((float)((n-first+2.2f)*line_h)/(float)_height), 0.85f, COL_XMB_SUBTITLE, list[n].label, 1.04f, 0.0f, _menu_font, 0.8f/((float)(_width/1920.f)), (y_scale+0.1f)/((float)(_height/1080.f)), 0 );
-				flush_ttf(text_LIST, _width, _height);
-			}
-
-			print_label_ex( 0.6f, ((float)(_height-line_h*2)/(float)_height)+0.0326f, 1.5f, 0xf0c0c0c0, (char*) STR_BUT_CONFIRM, 1.04f, 0.0f, _menu_font, 0.5f/((float)(_width/1920.f)), 0.5f/((float)(_height/1080.f)), 0);
-			flush_ttf(text_LIST, _width, _height);
-			put_texture_with_alpha_gen( text_LIST, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, _width, (int)((0.6f*_width)-dox_cross_w-5), _height-line_h*2+4);
-			last_sel=sel;
-		}
-
-		ClearSurface();
-
-		draw_fileman();
-
-		set_texture(text_LIST, _width, _height);
-		display_img((int)(mouseX*1920.f), (int)(mouseY*1080.f), _width, _height, _width, _height, -0.3f, _width, _height);
-
-		time ( &rawtime );	timeinfo = localtime ( &rawtime );
-		if(date_format==0) sprintf(string1, "%02d/%02d/%04d", timeinfo->tm_mday, timeinfo->tm_mon+1, timeinfo->tm_year+1900);
-		else if(date_format==1) sprintf(string1, "%02d/%02d/%04d", timeinfo->tm_mon+1, timeinfo->tm_mday, timeinfo->tm_year+1900);
-		else if(date_format==2) sprintf(string1, "%04d/%02d/%02d", timeinfo->tm_year+1900, timeinfo->tm_mon+1, timeinfo->tm_mday );
-
-		cellDbgFontPrintf( 0.83f, 0.895f, 0.70f ,COL_HEXVIEW, "%s\n %s:%02d:%02d ", string1, tmhour(timeinfo->tm_hour), timeinfo->tm_min, timeinfo->tm_sec);
-
-		flip();
-
-
-		mouseX+=mouseXD; mouseY+=mouseYD;
-		if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
-		if(mouseY>0.990f) {mouseY=0.990f;mouseYD=0.0f;} if(mouseY<0.0f) {mouseY=0.0f;mouseYD=0.0f;}
-
-	}
-
-	return -1;
-}
 
 static void add_browse_column_thread_entry( uint64_t arg )
 {
@@ -21554,7 +21579,7 @@ int main(int argc, char **argv)
 		reset_mount_points();
 	disable_sc36();
 
-	if(cover_mode<3 || cover_mode > MODE_FILEMAN)
+	if(cover_mode > MODE_FILEMAN)
 		draw_legend=1;
 	else
 		draw_legend=0;
@@ -22355,7 +22380,7 @@ next_for_FM:
 		state_draw=1;
 
 		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
-		if(cover_mode<3 || cover_mode > MODE_FILEMAN)  load_legend(text_legend, legend);
+		if(cover_mode > MODE_FILEMAN)  load_legend(text_legend, legend);
 		if(cover_mode == MODE_XMMB)
 		{
 			xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );
@@ -22405,10 +22430,8 @@ from_fm:
 		new_pad=0;
 		c_opacity=0xff; c_opacity2=0xff;
 
-		if(cover_mode<0) {cover_mode = MODE_XMMB;}
-
 		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
-		if((cover_mode<3 || cover_mode > MODE_FILEMAN))  load_legend(text_legend, legend);
+		if(cover_mode > MODE_FILEMAN)  load_legend(text_legend, legend);
 		if(cover_mode == MODE_XMMB)
 		{
 			xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );
