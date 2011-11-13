@@ -249,6 +249,22 @@ static int ve_result = 0xDEAD;
 static int me_result = 0xDEAD;
 static int pe_result = 0xDEAD;
 
+static u32 new_pad=0, old_pad=0;
+static u32 new_pad_t[7];
+static u32 old_pad_t[7];
+static uint8_t old_status=0;
+static uint8_t old_status_k=0;
+static u8 pad_num=0;
+static u8 active_pads=0;
+static int last_pad=-1;
+static u32 old_info[7];
+static CellPadActParam _CellPadActParam[1];
+static bool use_motor=false;
+
+static int png_w=0, png_h=0, png_w2, png_h2;
+static int jpg_w=0, jpg_h=0;
+static int png_w_th=0, png_h_th=0;
+
 static void video_export( char *filename_v, char *album, int to_unregister);
 static int video_finalize( void );
 static void cb_export_finish( int result, void *userdata);
@@ -309,10 +325,8 @@ void change_opacity(u8 *buffer, int delta, u32 size);
 void draw_stars();
 float use_drops=false;
 
-void draw_whole_xmb(u8 mode);
 void draw_xmb_clock(u8 *buffer, const int _xmb_icon);
 void draw_xmb_icon_text(int _xmb_icon);
-void draw_xmb_bare(u8 _xmb_icon, u8 _all_icons, bool recursive, int _sub_level);
 void init_xmb_icons(t_menu_list *list, int max, int sel);
 
 void redraw_column_texts(int _xmb_icon);
@@ -320,9 +334,6 @@ void reset_xmb_checked();
 void reset_xmb(u8 _flag);
 void free_all_buffers();
 void free_text_buffers();
-
-void draw_fileman();
-void set_fm_stripes();
 
 void draw_xmb_info();
 void apply_theme (const char *theme_file, const char *theme_path);
@@ -1342,7 +1353,6 @@ u8 max_theme=0;
 
 int open_theme_menu(char *_caption, int _width, theme_def *list, int _max, int _x, int _y, int _max_entries, int _centered);
 
-void draw_xmb_icons(xmb_def *_xmb, const int _xmb_icon, int _xmb_x_offset, int _xmb_y_offset, const bool _recursive, int sub_level, int _bounce);
 void draw_browse_column(xmb_def *_xmb, const int _xmb_icon_, int _xmb_x_offset, int _xmb_y_offset, const bool _recursive, int sub_level);
 
 void add_home_column();
@@ -1498,225 +1508,46 @@ static void dialog_fun2( int button_type, void * )
 
 #define ClearSurface() cellGcmSetClearSurface(CELL_GCM_CLEAR_Z | CELL_GCM_CLEAR_R | CELL_GCM_CLEAR_G |	CELL_GCM_CLEAR_B | CELL_GCM_CLEAR_A);
 
-static void wait_dialog()
+static void update_fm_stripe()
 {
+	if(fm_sel==fm_sel_old) return;
+	fm_sel_old=fm_sel;
+	memcpy(text_FMS+737280, text_FMS, 368640);
 
-	while(!dialog_ret)
-	{
-
-		if(init_finished)
-		{
-			if(cover_mode == MODE_XMMB)
-				draw_whole_xmb(xmb_icon);
-			else if(cover_mode == MODE_FILEMAN)
-			{
-				ClearSurface();
-				draw_fileman();
-				flip();
-			}
-		}
-		else
-		{
-			flip();
-			sys_timer_usleep(1668);
-		}
-	}
-
-
-	cellMsgDialogClose(60.0f);
-	setRenderColor();
-	if(cover_mode == MODE_XMMB && init_finished)
-	{
-		for(int jw=0; jw < 40; jw++)
-		{
-			draw_whole_xmb(xmb_icon);
-		}
-	}
+	max_ttf_label=0;
+	print_label_ex( 0.104f, 0.13f, 1.0f, (fm_sel&1  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_GAMES,  1.04f, 0.0f, mui_font, (fm_sel&1  ? 1.1f : 0.75f), 21.f, 1);
+	print_label_ex( 0.230f, 0.13f, 1.0f, (fm_sel&2  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_UPDATE, 1.04f, 0.0f, mui_font, (fm_sel&2  ? 1.1f : 0.75f), 21.f, 1);
+	print_label_ex( 0.359f, 0.13f, 1.0f, (fm_sel&4  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_ABOUT,  1.04f, 0.0f, mui_font, (fm_sel&4  ? 1.1f : 0.75f), 21.f, 1);
+	print_label_ex( 0.479f, 0.13f, 1.0f, (fm_sel&8  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_HELP,   1.04f, 0.0f, mui_font, (fm_sel&8  ? 1.1f : 0.75f), 21.f, 1);
+	print_label_ex( 0.609f, 0.13f, 1.0f, (fm_sel&16 ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_THEMES, 1.04f, 0.0f, mui_font, (fm_sel&16 ? 1.1f : 0.75f), 21.f, 1);
+	flush_ttf(text_FMS+737280, 1920, 48);
 }
 
-void wait_dialog_simple()
+static void set_fm_stripes()
 {
-
-	while(!dialog_ret)
-	{
-
-		sys_timer_usleep(1668);
-		flip();
-	}
-
-	cellMsgDialogClose(60.0f);
-	setRenderColor();
+	fm_sel=0; fm_sel_old=15;
+	load_texture(text_FMS, playBG, 1920); memcpy(text_FMS+368640, text_FMS, 368640); memcpy(text_FMS+737280, text_FMS, 368640);
+	update_fm_stripe();
 }
 
-void load_localization(int id, bool force)
+static void draw_fileman()
 {
-	MM_LocaleSet(0);
-	mui_font = locales[0].font_id;
-	if(id)
-	{
-		int id2=0;
-		for(int n=0;n<MAX_LOCALES;n++) if(locales[n].val==id) {id2=n; break;}
-		char lfile[128];
-		sprintf(lfile, "%s/lang/LANG_%s.TXT", app_usrdir, locales[id2].id);
-		int llines = MM_LocaleInit ( lfile );
-		if(llines==STR_LAST_ID)
-		{
-			MM_LocaleSet (1);
-			if(locales[id2].font_id!=4 || force)
-			{
-				mui_font = locales[id2].font_id;
-				user_font = locales[id2].font_id;
-			}
-		}
-		else
-		{
-			mm_locale=0;
-			MM_LocaleSet(0);
-			mui_font = locales[0].font_id;
-			char errlang[512];
-			sprintf(errlang, "Localization file for %s (%s) language is missing or incomplete!\n\n%s: %i lines read, but %i expected!\n\nRestart multiMAN while holding L2+R2 for \"Debug Mode\" to generate LANG_DEFAULT.TXT\nwith all required localization labels.", locales[id2].eng_name, locales[id2].loc_name, lfile, llines, STR_LAST_ID);
-			dialog_ret=0;
-			cellMsgDialogOpen2( type_dialog_ok, errlang, dialog_fun2, (void*)0x0000aaab, NULL );
-			wait_dialog_simple();
-		}
-	}
-	if (mui_font>4 && mui_font<10) mui_font+=5;
+		//if(c_opacity2<0x01) return;
 
-	for(int n=0; n<16; n++) sprintf(genre[n],		  "%s", (const char*)MM_STRING(210+n));
-	for(int n=0; n< 6; n++) sprintf(retro_groups[n],  "%s", (const char*)MM_STRING(226+n));
-							sprintf(alpha_groups[14], "%s", (const char*)STR_OTHER);
-							sprintf(retro_groups[6],  "%s", (const char*)"PSX");
-							sprintf(retro_groups[7],  "%s",	(const char*)"PS2");
-							sprintf(retro_groups[8],  "%s", (const char*)"PSP");
+		set_texture( text_OFF_2, 320, 320);
+		display_img(1775-(int)(1920.0f*0.025f), 24+(int)(1080.0f*0.025f), 48, 48, 96, 96, -0.2f, 320, 320);
 
-							sprintf(xmb_columns[0], "Empty");
-							sprintf(xmb_columns[1], "multiMAN");
-	for(int n=2; n<8 ; n++) sprintf(xmb_columns[n], "%s", (const char*)MM_STRING(230+n));	// 232-237
-							sprintf(xmb_columns[8], "%s", (const char*)STR_GRP_RETRO);		// Retro
-							sprintf(xmb_columns[9], "%s", (const char*)MM_STRING(238));		// Web
+		update_fm_stripe();
 
-	for(int n=0; n<MAX_XMB_ICONS ; n++) sprintf(xmb[n].name, "%s", xmb_columns[n]);
+		set_texture( text_FMS+737280, 1920, 48);
+		display_img(0, 47, 1920, 60, 1920, 48, 0.0f, 1920, 48);
+		set_texture( text_FMS, 1920, 48);
+		display_img(0, 952, 1920, 76, 1920, 48, 0.0f, 1920, 48);
 
-}
+		set_texture( text_bmpUPSR+V_WIDTH*4*(int)((107.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT));//V_HEIGHT-);
+		display_img_nr(0, (int)((107.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT), 0.0f, V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT));
+		draw_xmb_info();
 
-u64 is_size(char *path)
-{
-	struct CellFsStat s;
-	if(cellFsStat(path, &s)==CELL_FS_SUCCEEDED)
-		return s.st_size;
-	else
-		return 0;
-}
-
-static int exist(const char *path)
-{
-	Lv2FsStat buf;
-	return lv2FsStat(path, &buf)>=0;
-}
-
-static inline int rndv(int maxval)
-{
-	return (int) ((float)rand() * ((float)maxval / (float)RAND_MAX));
-}
-
-#if (CELL_SDK_VERSION>0x210001)
-static void usbdev_init(int check)
-{
-	FILE *fid;
-	int vid, pid;
-	DEV_INFO *usbdev;
-	int32_t r;
-	char usbcfg[128];
-	sprintf(usbcfg, "%s/USB.CFG", app_usrdir);
-
-	fid = fopen(usbcfg, "r");
-	if (!fid)
-		return;
-
-	while (fscanf(fid, "%x:%x:%i", &vid, &pid, &max_usb_volumes) != EOF) {
-		if ((usbdev = (DEV_INFO *)malloc(sizeof(DEV_INFO))) == NULL)
-			break;
-
-		if(check)
-		{
-			if ((r = PfsmDevAdd(vid, pid, &usbdev->dev))) {
-				free(usbdev);
-			} else {
-				usbdev->next = dev_info;
-				dev_info = usbdev;
-			}
-		}
-	}
-
-	fclose(fid);
-
-}
-
-static void usbdev_uninit(void)
-{
-	DEV_INFO *usbdev;
-
-	while ((usbdev = dev_info)) {
-		dev_info = usbdev->next;
-		PfsmDevDel(&usbdev->dev);
-		free(usbdev);
-	}
-}
-#endif
-
-static void flipc(int _fc)
-{
-	int flipF;
-	for(flipF = 0; flipF<_fc; flipF++)
-	{
-		ClearSurface();
-		flip();
-	}
-}
-
-void get_free_memory()
-{
-	system_call_1(352, (uint64_t) &meminfo);
-}
-
-
-u32 new_pad=0, old_pad=0;
-u32 new_pad_t[7];
-u32 old_pad_t[7];
-uint8_t old_status=0;
-uint8_t old_status_k=0;
-u8 pad_num=0;
-u8 active_pads=0;
-int last_pad=-1;
-static u32 old_info[7];
-static CellPadActParam _CellPadActParam[1];
-bool use_motor=false;
-
-void pad_reset()
-{
-	for(int n=0;n<7;n++)
-	{
-		new_pad_t[n]=0;
-		old_pad_t[n]=0;
-		old_info [n]=0;
-	}
-	new_pad=0; old_pad=0;
-}
-
-static void pad_motor( u8 m1, u8 m2)
-{
-		_CellPadActParam[0].motor[0]=m1;
-		_CellPadActParam[0].motor[1]=m2;
-		_CellPadActParam[0].reserved[0]=0;
-		_CellPadActParam[0].reserved[1]=0;
-		_CellPadActParam[0].reserved[2]=0;
-		_CellPadActParam[0].reserved[3]=0;
-		_CellPadActParam[0].reserved[4]=0;
-		_CellPadActParam[0].reserved[5]=0;
-		for(u8 n=0;n<7;n++)
-			cellPadSetActDirect(n, &_CellPadActParam[0]);
-		sys_timer_usleep(250*1000);
-		use_motor=false;
 }
 
 static int pad_read( void )
@@ -2109,7 +1940,2315 @@ pad_repeat:
 	return 1;
 }
 
-void screen_saver()
+static u8 read_pad_info_browse()
+{
+
+	if ( (new_pad & BUTTON_UP) )
+	{
+		c_opacity_delta=16;	dimc=0; dim=1;
+
+		counter_png=30;
+		new_pad=0;
+		if(xmb[0].size>1)
+		{
+			xmb_legend_drawn=0;
+			xmb_info_drawn=0;
+			xmb_bg_show=0; xmb_bg_counter=200;
+			if(xmb[0].first==0) {xmb[0].first=xmb[0].size-1; xmb0_slide_y=0; xmb0_slide_step_y=0; }
+			else
+			{
+				if(xmb0_slide_step_y!=0)
+				{
+					if(xmb0_slide_y >0) { if(xmb[0].first>0) xmb[0].first-=repeat_counter3; xmb0_slide_y=0;}
+					if(xmb0_slide_y <0) { if(xmb[0].first<xmb[0].size-1) xmb[0].first+=repeat_counter3; xmb0_slide_y=0;}
+					if(xmb[0].first==1 || xmb[0].first>=xmb[0].size) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+					if(xmb[0].first>=xmb[0].size) xmb[0].first=xmb[0].size-1;
+				}
+				//else
+				xmb0_slide_step_y=10;
+			}
+		}
+	}
+
+	if ( (new_pad & BUTTON_DOWN) )
+	{
+		c_opacity_delta=16;	dimc=0; dim=1;
+		counter_png=30;
+		new_pad=0;
+		if(xmb[0].size>1)
+		{
+			xmb_legend_drawn=0;
+			xmb_info_drawn=0;
+			xmb_bg_show=0; xmb_bg_counter=200;
+			if(xmb[0].first==xmb[0].size-1) {xmb[0].first=0; xmb0_slide_y=0; xmb0_slide_step_y=0;}
+			else
+			{
+				if(xmb0_slide_step_y!=0)
+				{
+					if(xmb0_slide_y >0) { if(xmb[0].first>0) xmb[0].first-=repeat_counter3; xmb0_slide_y=0;}
+					if(xmb0_slide_y <0) { if(xmb[0].first<xmb[0].size-1) xmb[0].first+=repeat_counter3; xmb0_slide_y=0;}
+					if(xmb[0].first>=xmb[0].size-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+				}
+
+				xmb0_slide_step_y=-10;
+				if(xmb[0].first>=xmb[0].size) xmb[0].first=xmb[0].size-1;
+
+			}
+		}
+	}
+	return 0;
+}
+
+void put_label(uint8_t *buffer, uint32_t width, uint32_t height, char *str1p, char *str2p, char *str3p, uint32_t color) //uint8_t *texture,
+{
+		if(game_details==3) return;
+		CellFontRenderer* renderer;
+		CellFontRenderSurface* surf;
+		CellFont Font[1];
+		CellFont* cf;
+		int fn;
+
+		surf     = &RenderWork.Surface;
+		cellFontRenderSurfaceInit( surf,
+		                           buffer, width*4, 4,
+		                           width, height );
+
+		cellFontRenderSurfaceSetScissor( surf, 0, 0, width, height );
+		renderer = &RenderWork.Renderer;
+		fn = FONT_SYSTEM_5;
+		if(user_font==1 || user_font>19) fn = FONT_SYSTEM_GOTHIC_JP;
+		else if (user_font==2) fn = FONT_SYSTEM_GOTHIC_LATIN;
+		else if (user_font==3) fn = FONT_SYSTEM_SANS_SERIF;
+		else if (user_font==4) fn = FONT_SYSTEM_SERIF;
+		else if (user_font>4 && user_font<10) fn=user_font+5;
+		else if (user_font>14 && user_font<20) fn=user_font;
+
+		int ret = Fonts_AttachFont( fonts, fn, &Font[0] );
+		if ( ret == CELL_OK ) cf = &Font[0];
+		else                  cf = (CellFont*)0;
+
+		if ( cf ) {
+			static float textScale = 1.00f;
+			static float weight = 1.04f;
+			static float slant = 0.00f;
+			float surfW = (float)width;
+			float surfH = (float)height;
+			float textX, textW = surfW;
+			float textY, textH = surfW;
+			float scale;
+			float step;
+			float lineH, baseY;
+
+
+			uint8_t* utf8Str0 = (uint8_t*) str1p;
+			uint8_t* utf8Str1 = (uint8_t*) str2p;
+			uint8_t* utf8Str2 = (uint8_t*) str3p;
+			float x, y, x2, x3;
+			float w1,w2,w3;
+			float w;
+			if(str1p[0]=='_') utf8Str0++;
+
+			step  =  0.f;
+			scale=28.f;
+
+			textX = 0.5f * ( surfW - surfW * textScale );
+			textY = 0.03f * ( surfH - surfH * textScale );
+			textW = surfW * textScale;
+			textH = surfH * textScale;
+
+			ret = Fonts_SetFontScale( cf, scale );
+			if ( ret == CELL_OK ) {
+				ret = Fonts_SetFontEffectWeight( cf, weight );
+			}
+			if ( ret == CELL_OK ) {
+				ret = Fonts_SetFontEffectSlant( cf, slant );
+			}
+
+				ret = Fonts_GetFontHorizontalLayout( cf, &lineH, &baseY );
+
+				if ( ret == CELL_OK ) {
+
+					w1 = Fonts_GetPropTextWidth( cf, utf8Str0, scale, scale, slant, step, NULL, NULL )*1.2f;
+					w2 = Fonts_GetPropTextWidth( cf, utf8Str1, scale, scale, slant, step, NULL, NULL )*0.8f;
+					w3 = Fonts_GetPropTextWidth( cf, utf8Str2, scale, scale, slant, step, NULL, NULL )*0.8f;
+					w = (( w1 > w2 )? w1:w2);
+
+					if ( w > textW ) {
+						float ratio;
+
+						scale = Fonts_GetPropTextWidthRescale( scale, w, textW, &ratio );
+						w1    *= ratio;
+						w2    *= ratio;
+						w3    *= ratio;
+						baseY *= ratio;
+						lineH *= ratio;
+						step  *= ratio;
+					}
+
+					Fonts_BindRenderer( cf, renderer );
+
+					x = 0.5f*(textW-w1);//+mouseXP; //textX-0.7f;//
+					x2 = 0.5f*(textW-w2);//+mouseXP; //textX-0.7f;//
+					x3 = 0.5f*(textW-w3);//+mouseXP; //textX-0.7f;//
+					y=legend_y;//+mouseYP;
+
+
+					if(game_details!=3)
+					{
+						if(game_details==0) y+=25;
+						if(game_details==1) y+=12;
+						Fonts_RenderPropText( cf, surf, x+1, y+1, utf8Str0, scale*1.2, scale, slant, step, 0xf0101010 );//f01010e0 //0xff404040
+						Fonts_RenderPropText( cf, surf, x, y, utf8Str0, scale*1.2f, scale, slant, step, color );//(color & 0x00ffffff)
+
+						if(game_details>0)
+						{
+							Fonts_RenderPropText( cf, surf, x3+1, y+42, utf8Str2, scale*0.8f, scale*0.57f, slant, step, 0xff101010);
+							Fonts_RenderPropText( cf, surf, x3, y+41, utf8Str2, scale*0.8f, scale*0.57f, slant, step, 0xffd0d0ff );
+						}
+
+						if(game_details>1)
+						{
+							Fonts_RenderPropText( cf, surf, x2+1, y+68, utf8Str1, scale*0.8f, scale*0.8f, slant, step, 0xff101010);
+							Fonts_RenderPropText( cf, surf, x2, y+67, utf8Str1, scale*0.8f, scale*0.8f, slant, step, 0xc000ffff );
+						}
+					}
+
+
+					Fonts_UnbindRenderer( cf );
+				}
+
+			Fonts_DetachFont( cf );
+		}
+
+}
+
+static void load_coverflow_legend()
+{
+	if(cover_mode!=4 || !xmb[6].init || coverflow_legend_loading) return;
+	coverflow_legend_loading=1;
+	if((xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].game_id!=-1) game_sel=xmb[xmb_icon].member[xmb[xmb_icon].first].game_id; // || xmb_icon==8
+	int grey=(menu_list[game_sel].title[0]=='_' || menu_list[game_sel].split);
+	u32 color= (menu_list[game_sel].flags && game_sel==0)? COL_PS3DISC : ((grey==0) ?  COL_PS3 : COL_SPLIT);
+	if(strstr(menu_list[game_sel].content,"AVCHD")!=NULL) color=COL_AVCHD;
+	if(strstr(menu_list[game_sel].content,"BDMV")!=NULL) color=COL_BDMV;
+	if(strstr(menu_list[game_sel].content,"PS2")!=NULL) color=COL_PS2;
+	if(strstr(menu_list[game_sel].content,"DVD")!=NULL) color=COL_DVD;
+	int tmp_legend_y=legend_y;
+	legend_y=0;
+	memset(text_bmp, 0, 737280);
+	if(xmb[6].first)
+	{
+		if(!key_repeat)
+		{
+			char str[256];
+			sprintf(str, (const char*)(STR_POP_1OF1)+4, xmb[6].first, xmb[6].size-1); //"%i of %i"
+			if(dir_mode==1)
+				put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)str, (char*)menu_list[game_sel].path, color);
+			else
+				put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)str, (char*)menu_list[game_sel].title_id, color);
+		}
+		else
+			put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)" ", (char*)" ", color);
+	}
+	else
+		put_label(text_bmp, 1920, 1080, (char*)STR_XC1_REFRESH, (char*)" ", (char*)" ", COL_PS3);
+
+	legend_y=tmp_legend_y;
+	xmb_bg_show=0;
+	coverflow_legend_loading=0;
+}
+
+static u8 read_pad_info()
+{
+	if(browse_column_active && cover_mode == MODE_XMMB) return read_pad_info_browse();
+	u8 to_return=0;
+	int skip_t=14;
+	if ( ( ( (new_pad & BUTTON_UP)))) {
+		c_opacity_delta=16;	dimc=0; dim=1;
+		counter_png=30;
+		if(cover_mode != MODE_XMMB)
+		{
+			game_sel_last=game_sel;
+			game_sel-=skip_t;
+		}
+		new_pad=0;
+		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
+		{
+			xmb_legend_drawn=0;
+			xmb_info_drawn=0;
+			xmb_bg_show=0; xmb_bg_counter=200;
+			if(xmb[xmb_icon].first==0) {xmb[xmb_icon].first=xmb[xmb_icon].size-1; xmb_slide_y=0; xmb_slide_step_y=0; }
+			else
+			{
+				if(xmb_slide_step_y!=0)
+				{
+					if(xmb_slide_y >0) { if(xmb[xmb_icon].first>0) xmb[xmb_icon].first-=repeat_counter3; xmb_slide_y=0;}
+					if(xmb_slide_y <0) { if(xmb[xmb_icon].first<xmb[xmb_icon].size-repeat_counter3) xmb[xmb_icon].first+=repeat_counter3; xmb_slide_y=0;}
+					if(xmb[xmb_icon].first==1 || xmb[xmb_icon].first>=xmb[xmb_icon].size) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+					if(xmb[xmb_icon].first>=xmb[xmb_icon].size) xmb[xmb_icon].first=xmb[xmb_icon].size-1;
+					load_coverflow_legend();
+				}
+				//else
+				xmb_slide_step_y=10;
+			}
+		}
+		if(game_sel<0) {
+			game_sel=max_menu_list-1;	game_sel_last=game_sel;
+			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}}
+	}
+
+	if ( (((new_pad & BUTTON_DOWN)) && (cover_mode!=4 && cover_mode!=6))) {
+		c_opacity_delta=16;	dimc=0; dim=1;
+		counter_png=30;
+		if(cover_mode != MODE_XMMB)
+		{
+			game_sel_last=game_sel;
+			game_sel+=skip_t;
+			if(skip_t>1 && game_sel>=max_menu_list)
+			{
+				game_sel=max_menu_list-1;
+				if(game_sel_last==game_sel) game_sel=0;
+			}
+		}
+		new_pad=0;
+		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
+		{
+			xmb_legend_drawn=0;
+			xmb_info_drawn=0;
+			xmb_bg_show=0; xmb_bg_counter=200;
+			if(xmb[xmb_icon].first==xmb[xmb_icon].size-1) {xmb[xmb_icon].first=0; xmb_slide_y=0; xmb_slide_step_y=0;}
+			else
+			{
+				if(xmb_slide_step_y!=0)
+				{
+					if(xmb_slide_y >0) { if(xmb[xmb_icon].first>0) xmb[xmb_icon].first-=repeat_counter3; xmb_slide_y=0;}
+					if(xmb_slide_y <0) { if(xmb[xmb_icon].first<xmb[xmb_icon].size-repeat_counter3) xmb[xmb_icon].first+=repeat_counter3; xmb_slide_y=0;}
+					if(xmb[xmb_icon].first>=xmb[xmb_icon].size-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+				}
+				//else
+					xmb_slide_step_y=-10;
+				if(xmb[xmb_icon].first>=xmb[xmb_icon].size) xmb[xmb_icon].first=xmb[xmb_icon].size-1;
+
+			}
+
+
+		}
+		if(game_sel>=max_menu_list) {
+			game_sel=0; game_sel_last=0; counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}
+			}
+
+	}
+
+	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6))) {
+//		old_pad=0; new_pad=0;
+		xmb_legend_drawn=0;
+		xmb_info_drawn=0;
+		if(cover_mode == MODE_XMMB && xmb_icon>1)
+		{
+			if(xmb_slide_step!=0)
+			{
+				if(xmb_slide >0) {if(xmb_icon>2) xmb_icon--;  free_all_buffers(); xmb_slide=0;draw_xmb_icon_text(xmb_icon);}
+				if(xmb_slide <0) {if(xmb_icon<MAX_XMB_ICONS-2) xmb_icon++; free_all_buffers(); xmb_slide=0; draw_xmb_icon_text(xmb_icon);}
+				if(xmb_icon!=1) xmb_slide_step=15;
+				if(xmb_icon==2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+			}
+			else
+				xmb_slide_step=15;
+		}
+		if(cover_mode == MODE_XMMB) goto leave_for8;
+		skip_t=14;
+
+		c_opacity_delta=16; dimc=0; dim=1;
+		if(game_sel == 0) { game_sel=max_menu_list-1; game_sel_last=game_sel; counter_png=0; new_pad=0; {to_return=1; goto leave_for8;}}
+		else {
+//			old_pad=0; new_pad=0;
+			game_sel = game_sel-skip_t; game_sel_last=game_sel;
+			if(game_sel<0) {game_sel = 0; game_sel_last=0; counter_png=0; new_pad=0;{to_return=1; goto leave_for8;}}
+		}
+	}
+
+	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6))) {
+//		old_pad=0; new_pad=0;
+		xmb_legend_drawn=0;
+		xmb_info_drawn=0;
+		if(cover_mode == MODE_XMMB && xmb_icon<MAX_XMB_ICONS-1)
+		{
+			if(xmb_slide_step!=0)
+			{
+				if(xmb_slide >0) {if(xmb_icon>2) xmb_icon--; free_all_buffers(); xmb_slide=0; draw_xmb_icon_text(xmb_icon);}
+				if(xmb_slide <0) {if(xmb_icon<MAX_XMB_ICONS-2) xmb_icon++; free_all_buffers(); xmb_slide=0;draw_xmb_icon_text(xmb_icon);}
+				xmb_slide_step=-15;
+				if(xmb_icon!=MAX_XMB_ICONS-1) xmb_slide_step=-15;
+				if(xmb_icon==MAX_XMB_ICONS-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
+			}
+			else
+				xmb_slide_step=-15;
+		}
+		if(cover_mode == MODE_XMMB) goto leave_for8;
+		skip_t=14;
+		c_opacity_delta=16; dimc=0; dim=1;
+		if(game_sel == max_menu_list-1) { game_sel = 0; game_sel_last=game_sel; }
+		else {
+//			old_pad=0; new_pad=0;
+			game_sel = game_sel + skip_t; game_sel_last=game_sel;
+			if(game_sel>=max_menu_list) {game_sel=max_menu_list-1; new_pad=0; game_sel_last=game_sel; counter_png=0; {to_return=1; goto leave_for8;}}
+		}
+	}
+
+
+		if((old_pad & BUTTON_SELECT) && (new_pad & BUTTON_R2))
+		{
+			c_opacity_delta=16;	dimc=0; dim=1;
+			new_pad=0; //state_draw=1;
+			overscan+=0.01f; if(overscan>0.10f) overscan=0.10f;
+			if(cover_mode == MODE_XMMB && xmb_icon==2) redraw_column_texts(xmb_icon);
+			{to_return=1; goto leave_for8;}
+		}
+
+		if((old_pad & BUTTON_SELECT) && (new_pad & BUTTON_L2))
+		{
+			c_opacity_delta=16;	dimc=0; dim=1;
+			new_pad=0; //old_pad=0; state_draw=1;
+			overscan-=0.01f;if(overscan<0.0f) overscan=0.00f;
+			if(cover_mode == MODE_XMMB && xmb_icon==2) redraw_column_texts(xmb_icon);
+			{to_return=1; goto leave_for8;}
+		}
+
+
+leave_for8:
+	return to_return;
+}
+
+static void add_browse_column()
+{
+	if(is_browse_loading || xmb[0].init || is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading)
+		return;
+
+	is_browse_loading=1;
+	xmb[0].init=1;
+	sys_ppu_thread_create( &addbro_thr_id, add_browse_column_thread_entry, 0, misc_thr_prio-5, app_stack_size, 0, "multiMAN_add_browse" );
+}
+
+static void add_video_column()
+{
+	if(is_video_loading || xmb[5].init || !xmb[6].init || is_game_loading || is_music_loading || is_photo_loading || is_retro_loading)
+		return;
+	is_video_loading=1;
+	xmb[5].init=1;
+	sys_ppu_thread_create( &addvid_thr_id, add_video_column_thread_entry, 0, misc_thr_prio-5, app_stack_size, 0, "multiMAN_add_video" );//SYS_PPU_THREAD_CREATE_JOINABLE
+}
+
+static void add_music_column()
+{
+	if(xmb[4].init || is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading)
+		return;
+	is_music_loading=1;
+	xmb[4].init=1;
+	sys_ppu_thread_create( &addmus_thr_id, add_music_column_thread_entry, 0, misc_thr_prio-5, app_stack_size, 0, "multiMAN_add_music" );//SYS_PPU_THREAD_CREATE_JOINABLE
+}
+
+static void add_photo_column()
+{
+	if(xmb[3].init || is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading)
+		return;
+	is_photo_loading=1;
+	xmb[3].init=1;
+	sys_ppu_thread_create( &addpic_thr_id, add_photo_column_thread_entry, 0, misc_thr_prio-5, app_stack_size, 0, "multiMAN_add_photo" );//SYS_PPU_THREAD_CREATE_JOINABLE
+}
+
+static void add_xmb_member(xmbmem *_member, u16 *_size, char *_name, char *_subname,
+		/*type*/u8 _type, /*status*/u8 _status, /*game_id*/int _game_id, /*icon*/u8 *_data, u16 _iconw, u16 _iconh, /*f_path*/char *_file_path, /*i_path*/ char *_icon_path, int _u_flags, int _split)
+{
+	if( (*_size)>=(MAX_XMB_MEMBERS-1) || strlen(_file_path)>sizeof(_member[0].file_path) || strlen(_icon_path)>sizeof(_member[0].icon_path) ) return;
+
+	u16 size=(*_size);
+	_member[size].is_checked = true;
+	_member[size].type		=_type;
+	_member[size].status	=_status;
+	_member[size].game_id	=_game_id;
+
+	_member[size].game_user_flags =_u_flags;
+	_member[size].game_split	  =_split;
+
+	snprintf(_member[size].name, sizeof(_member[size].name), "%s", _name);
+	_member[size].name[sizeof(_member[size].name)-1]=0;
+	snprintf(_member[size].subname, sizeof(_member[size].subname), "%s", _subname);
+	_member[size].subname[sizeof(_member[size].subname)-1]=0;
+
+	_member[size].option_size=0;
+	_member[size].option_selected=0;
+
+	_member[size].data=-1;
+	_member[size].icon  =_data;
+	_member[size].icon_buf = -1;
+	_member[size].iconw =_iconw;
+	_member[size].iconh =_iconh;
+
+	snprintf(_member[size].file_path, sizeof(_member[size].file_path), "%s", _file_path);
+	snprintf(_member[size].icon_path, sizeof(_member[size].icon_path), "%s", _icon_path);
+
+	(*_size)++;
+}
+
+static int exist(const char *path)
+{
+	Lv2FsStat buf;
+	return lv2FsStat(path, &buf)>=0;
+}
+
+static void delete_xmb_member(xmbmem *_xmb, u16 *max, int n)
+{
+	if(n==((*max)-1)) {(*max)--; return;}
+	if((*max) >1)
+	{
+		for(int n2=n; (n2 < ((*max)-1)); n2++)
+			_xmb[n2]=_xmb[n2+1];
+
+		(*max) --;
+	}
+	else  {if((*max) == 1)(*max) --;}
+}
+
+static void sort_xmb_col(xmbmem *_xmb, u16 max, const int first)
+{
+	if((max)<3)
+		return;
+	int n,m,o1=0,o2=0;
+	int _first=first;
+	u16 fi= (max);
+	xmbmem swap;
+
+	for(n=first; n< (fi -1);n++)
+	{
+		if(_xmb[n].type!=0 && _xmb[n].type!=6 && _xmb[n].type!=7)
+		{
+			if(n>_first) _first=n;
+			break;
+		}
+	}
+
+	for(n=_first; n< (fi -1);n++)
+		for(m=n+1; m< fi ;m++)
+		{
+			if(_xmb[n].name[0]=='_') o1=1; else o1=0;
+			if(_xmb[m].name[0]=='_') o2=1; else o2=0;
+
+			if(strcasecmp(_xmb[n].name+o1, _xmb[m].name+o2)>0 || (!_xmb[m].type && _xmb[n].type))
+			{
+				swap=_xmb[n];_xmb[n]=_xmb[m];_xmb[m]=swap;
+			}
+		}
+}
+
+static void is_psx_ps2()
+{
+	if(exist((char*)"/dev_bdvd/PSX.EXE"))
+	{
+		disc_in_tray=PSX_DISC;
+		return;
+	}
+	t_dir_pane_bare *pane =  (t_dir_pane_bare *) memalign(16, sizeof(t_dir_pane_bare)*MAX_PANE_SIZE_BARE);
+	if(pane!=NULL)
+	{
+		int max_dir=0;
+		ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".EXE");
+		ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".exe");
+		if(!max_dir)
+		{
+			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".ELF");
+			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".elf");
+			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".IRX");
+			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".irx");
+			if(max_dir) disc_in_tray=PS2_DISC; else disc_in_tray=PSX_DISC;
+		}
+		else disc_in_tray=PSX_DISC;
+		free(pane);
+	}
+}
+
+static u8 get_psx_region(char *_root)
+{
+	u8 region=0;
+	int dir_fd;
+	uint64_t nread;
+	CellFsDirent entry;
+
+	if (cellFsOpendir(_root, &dir_fd) == CELL_FS_SUCCEEDED)
+	{
+		while(1)
+		{
+
+			cellFsReaddir(dir_fd, &entry, &nread);
+			if(nread==0) break;
+			if(strlen(entry.d_name)==11)
+			{
+				if(entry.d_name[0]=='S' && entry.d_name[4]=='_' && entry.d_name[8]=='.')
+				{
+					if(entry.d_name[2]=='E') {region=1; break;}
+					if(entry.d_name[2]=='U') {region=2; break;}
+					if(entry.d_name[2]=='P') {region=3; break;}
+				}
+			}
+		}
+		cellFsClosedir(dir_fd);
+	}
+	return region;
+}
+
+static u8 get_psx_region_cd()
+{
+	u8 ret=0; // 0xXY X=1/2 PS1/PS2, Y=1/2/3 PAL/USA/JAP, 0=NA
+
+	int rr;
+	int dev_id;
+	u8* read_buffer = (unsigned char *) memalign(16, 4096);
+	u32 readlen=0;
+	u64 disc_size=0;
+	device_info_t disc_info;
+
+	rr=sys_storage_open(BD_DEVICE, &dev_id);
+	if(!rr) rr=sys_storage_get_device_info(BD_DEVICE, &disc_info);
+	disc_size = disc_info.sector_size * disc_info.total_sectors;
+
+	if(disc_size && !rr) // read sector 4 for License message
+	{
+		rr=sys_storage_read(dev_id, 4, 1, read_buffer, &readlen);
+		if(!rr && readlen==1)
+		{
+			if( read_buffer[0x20]==0x53 ) ret=0x13; //Sony
+			if( read_buffer[0x3c]==0x45 ) ret=0x11; //Europe
+			if( read_buffer[0x3c]==0x41 ) ret=0x12; //America
+		}
+	}
+	rr=sys_storage_close(dev_id);
+	free(read_buffer);
+
+	return ret;
+}
+
+static void download_cover(char *title_id, char *name)
+{
+	if(strlen(title_id)!=9 || download_covers!=1 || net_avail<0) return; //strstr (title_id,"NO_ID")!=NULL || strstr (title_id,"AVCHD")!=NULL) return;
+
+	net_avail=cellNetCtlGetInfo(16, &net_info);
+	if(net_avail<0) return;
+
+
+	char covers_url[128];
+	char string1x[128];
+	if(strstr(name, ".jpg")!=NULL || strstr(name, ".JPG")!=NULL || strstr(name, ".jpeg")!=NULL || strstr(name, ".JPEG")!=NULL)
+		sprintf(string1x, "%s/%s.JPG", covers_dir, title_id);
+	else
+		sprintf(string1x, "%s/%s.PNG", covers_dir, title_id);
+
+	sprintf(covers_url, "%s/covers_jpg/%s.JPG", url_base, title_id);
+	u8 is_in_queue=0;
+	for(int n=0;n<downloads_max; n++)
+		if(!strcmp(downloads[downloads_max].url, covers_url)){is_in_queue=1; break;}
+
+	if(!is_in_queue)
+	{
+		if(downloads_max>=MAX_DOWN_LIST) downloads_max=0;
+		sprintf(downloads[downloads_max].url, "%s", covers_url);
+		sprintf(downloads[downloads_max].local, "%s", string1x);
+		downloads[downloads_max].status=1;
+		downloads_max++;
+		if(downloads_max>=MAX_DOWN_LIST) downloads_max=0;
+	}
+}
+
+static int ps3_home_scan_bare(char *path, t_dir_pane_bare *list, int *max)
+{
+	if((*max)>=(MAX_PANE_SIZE_BARE-1)) {(*max)=(MAX_PANE_SIZE_BARE-1);return 0;}
+
+	DIR  *dir;
+
+	dir=opendir (path);
+	if(!dir) return -1;
+
+	while(1)
+	{
+		struct dirent *entry=readdir (dir);
+		if(!entry) break;
+
+		if(entry->d_name[0]=='.' && (entry->d_name[1]==0 || entry->d_name[1]=='_')) continue;
+		if(entry->d_name[0]=='.' && entry->d_name[1]=='.' && entry->d_name[2]==0) continue;
+		if(strstr(entry->d_name, ".MTH")!=NULL || strstr(entry->d_name, ".STH")!=NULL) continue;
+		if((strlen(path)+strlen(entry->d_name))>510) continue;
+
+		if((entry->d_type & DT_DIR))
+		{
+			char *d1f= (char *) malloc(512);
+			if(!d1f) {closedir (dir);return -1;}
+			snprintf(d1f, 511, "%s/%s", path, entry->d_name);
+			ps3_home_scan_bare(d1f, list, max);
+			free(d1f);
+		}
+		else
+		{
+
+			snprintf(list[*max ].name, sizeof(list[0].name)-1, "%s", entry->d_name);
+			snprintf(list[*max ].path, sizeof(list[0].path)-1, "%s", path);
+			(*max) ++;
+			if((*max)>=MAX_PANE_SIZE_BARE-1) {closedir(dir); (*max)=(MAX_PANE_SIZE_BARE-1); return 0;}
+		}
+
+	}
+
+	closedir (dir);
+
+	return 0;
+}
+
+static void add_game_column(t_menu_list *list, int max, int sel, bool force_covers)
+{
+		int toff=0;
+		char icon_path[512], linkfile[512];
+		u8	g_status;
+		char t_ip[512];
+		u8 *g_icon=xmb[0].data;
+		u8 ext_devs=0;
+
+		if(cover_mode == MODE_XMMB)
+		{
+
+		if(!xmb[5].init || !xmb[5].size)
+		{
+			xmb[5].first=0;
+			xmb[5].size=0;
+			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_LINK, (char*)STR_XC5_LINK1,
+					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
+			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_ST, (char*)STR_XC5_ST1,
+					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
+
+			if(ss_patched && exist((char*)"/dev_bdvd"))
+			{
+				ext_devs++;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"BD/DVD", (char*)STR_SIDE_BROW,
+					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
+			}
+
+			if(exist((char*)"/dev_sd"))
+			{
+				ext_devs++;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"SD/SDHC", (char*)"ROOT",
+					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_sd", /*i_path*/(char*)"/", 0, 0);
+			}
+
+			if(exist((char*)"/dev_cf"))
+			{
+				ext_devs++;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"CF", (char*)"ROOT",
+					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_cf", /*i_path*/(char*)"/", 0, 0);
+			}
+
+			if(exist((char*)"/dev_ms"))
+			{
+				ext_devs++;
+				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"MS/MSPRO", (char*)"ROOT",
+					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_ms", /*i_path*/(char*)"/", 0, 0);
+			}
+
+			ext_devs++;
+			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_BR_HDD, (char*)STR_SIDE_BROW,
+				/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_hdd0", /*i_path*/(char*)"/", 0, 0);
+
+			for(int ret_f=0; ret_f<99; ret_f++)
+			{
+				sprintf(icon_path, "/dev_usb%03i", ret_f);
+				if(exist(icon_path))
+				{
+					ext_devs++;
+					sprintf(t_ip, (char*) STR_BR_USB, ret_f);
+					add_xmb_member(xmb[5].member, &xmb[5].size, t_ip, (char*)STR_SIDE_BROW,
+						/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)icon_path, /*i_path*/(char*)"/", 0, 0);
+				}
+			}
+
+		}
+
+		if(xmb[5].size>(3+ext_devs))
+		{
+			for(int m=2; m<(xmb[5].size); m++)
+			{
+				if(xmb[5].member[m].type==0 && xmb[5].init) ext_devs++;
+				if(xmb[5].member[m].type==2)
+				{
+					delete_xmb_member(xmb[5].member, &xmb[5].size, m);
+					if(m>=xmb[5].size) break;
+					m--;
+				}
+			}
+			sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
+			//delete_xmb_dubs(xmb[5].member, &xmb[5].size);
+		}
+
+		}//xmmb
+
+		ext_devs=0;
+		u16 g_iconw=320;
+		u16 g_iconh=176;
+
+		if(!xmb[6].init)
+		{
+			xmb[6].first=0;
+			xmb[6].size=0;
+			add_xmb_member(xmb[6].member, &xmb[6].size, (char*)STR_XC1_REFRESH, (char*)STR_XC1_REFRESH2,
+					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb[0].data, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
+
+			xmb[7].first=0;
+			xmb[7].size=0;
+			xmb[7].init=0;
+			//if(ss_patched)
+			{
+				t_dir_pane_bare *pane =  (t_dir_pane_bare *) memalign(16, sizeof(t_dir_pane_bare)*MAX_PANE_SIZE_BARE);
+				if(pane!=NULL)
+				{
+					int max_dir=0;
+					ext_devs=0;
+					if( (exist((char*)"/dev_bdvd/SYSTEM.CNF") || exist((char*)"/dev_bdvd/system.cnf") || disc_in_tray==PSX_DISC || disc_in_tray==PS2_DISC))// && ss_patched
+					{
+						if(disc_in_tray==PS2_DISC) is_psx_ps2(); // || disc_in_tray==-1
+
+						if(disc_in_tray==PSX_DISC)
+						{
+							ext_devs++;
+							char psx_title[64];
+							sprintf (psx_title, "PLAYSTATION\xC2\xAE Disc");
+							u8 region = get_psx_region((char*)"/dev_bdvd");
+							if(!region) region = get_psx_region((char*)"/dev_ps2disc");
+							if(!region) region = get_psx_region((char*)"/dev_ps2disc1");
+							if(!region) region = (get_psx_region_cd() & 3);
+							if(region==1) strcat(psx_title, (char*)" [PAL]");
+							else if(region==2) strcat(psx_title, (char*)" [NTSC]");
+							else if(region==3) strcat(psx_title, (char*)" [NTSC/JAP]");
+
+							add_xmb_member(xmb[6].member, &xmb[6].size, (char*)psx_title, (char*)"PSX",
+							/*type*/36, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_psx, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
+							disc_in_tray=PSX_DISC;
+						}
+						else
+						{
+							ext_devs++;
+							add_xmb_member(xmb[6].member, &xmb[6].size, (char*)"PLAYSTATION\xC2\xAE\x32 Disc", (char*)"PS2",
+							/*type*/35, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_ps2, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
+							disc_in_tray=PS2_DISC;
+						}
+					}
+					max_dir=0;
+					if( (disc_in_tray==UNK_DISC || disc_in_tray==-1) && !hide_bd) // && c_firmware==3.55f
+					{
+						ext_devs++;
+						char psx_title[64];
+						sprintf (psx_title, "%s", (const char*) STR_SFD);
+						u8 region = get_psx_region((char*)"/dev_bdvd");
+						if(!region) region = get_psx_region((char*)"/dev_ps2disc");
+						if(!region) region = get_psx_region((char*)"/dev_ps2disc1");
+						if(!region) region = (get_psx_region_cd() & 3);
+						if(region==1) strcat(psx_title, (char*)" [PAL]");
+						else if(region==2) strcat(psx_title, (char*)" [NTSC]");
+						else if(region==3) strcat(psx_title, (char*)" [NTSC/JAP]");
+
+						add_xmb_member(xmb[6].member, &xmb[6].size, (char*)psx_title, (char*)"PSX",
+						/*type*/36, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_blend, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
+						//disc_in_tray=PSX_DISC;
+					}
+
+					if(!xmb[6].init && !hide_bd)
+					{
+						for(int m=0; m<max; m++)
+						{
+							if(!strcmp(list[m].content, "PS3") && strstr(list[m].path, "/dev_bdvd")!=NULL)
+							{
+								if(m==sel) xmb[6].first=xmb[6].size;
+								g_icon=xmb_icon_blu;
+								g_iconw=320; g_iconh=176;
+								g_status=0;
+
+								if(xmb_cover_column || force_covers)
+								{
+									sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
+									if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem_disc;}
+									sprintf(icon_path, "%s/%s.PNG", covers_dir, list[m].title_id);
+									if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem_disc;}
+
+									if(list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=-1 && list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=1)
+									{
+										sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
+										download_cover(list[xmb[xmb_icon].member[xmb[6].size].game_id].title_id, icon_path);
+										list[xmb[xmb_icon].member[xmb[6].size].game_id].cover=1;
+									}
+								}
+
+								sprintf(icon_path, "%s/%s_320.PNG", cache_dir, list[m].title_id);
+								if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem_disc;}
+								sprintf(icon_path, "%s/ICON0.PNG", list[m].path);
+								if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem_disc;}
+								else {g_status=2; g_iconw=128; g_iconh=128;}
+
+		add_mem_disc:
+								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title, list[m].path,
+								/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
+								ext_devs++;
+							}
+						}
+					}
+
+					ps3_home_scan_bare(iso_ps3, pane, &max_dir);
+
+					for(int ret_f=0; ret_f<9; ret_f++)
+					{
+						sprintf(linkfile, "/dev_usb00%i/%s", ret_f, iso_ps3_usb);
+						ps3_home_scan_bare(linkfile, pane, &max_dir);
+					}
+					for(int ret_f=0; ret_f<max_dir; ret_f++)
+					{
+						if(strstr(pane[ret_f].name, ".iso")!=NULL || strstr(pane[ret_f].name, ".ISO")!=NULL)
+						{
+							snprintf(linkfile, 511, "%s/%s", pane[ret_f].path, pane[ret_f].name);
+							if(strlen(linkfile)>(sizeof(xmb[5].member[0].file_path)-1)) continue;
+							if(pane[ret_f].name[strlen(pane[ret_f].name)-4]=='.') pane[ret_f].name[strlen(pane[ret_f].name)-4]=0;
+							add_xmb_member(xmb[6].member, &xmb[6].size, pane[ret_f].name, (char*)"PS3 ISO",
+								/*type*/32, /*status*/2, /*game_id*/0, /*icon*/xmb_icon_blu, 128, 128, /*f_path*/linkfile, /*i_path*/(char*)"/", 0, 0);
+						}
+
+					}
+
+					free(pane);
+				}
+			}
+		}
+
+		if(!xmb[6].init || !xmb[7].init || !xmb[5].init)
+		{
+			for(int m=0; m<max; m++)
+			{
+				if(!strcmp(list[m].content, "PS3") && strstr(list[m].path, "/dev_bdvd")==NULL)
+				{
+					if(!xmb[6].init)
+					{
+						if(xmb[6].group)
+						{
+							if( (int)((list[m].user>>16)&0x0f) != (xmb[6].group&0x0f) && (xmb[6].group&0x0f) ) continue;
+							if(xmb[6].group>>4)
+							{
+								u8 m_grp= ((xmb[6].group>>4)-1)*2;
+								if( (xmb[6].group>>4)!=15
+									&& (m_grp+0x41) != list[m].title[0]
+									&& (m_grp+0x42) != list[m].title[0]
+									&& (m_grp+0x61) != list[m].title[0]
+									&& (m_grp+0x62) != list[m].title[0]
+									) continue;
+								else if( (xmb[6].group>>4)==15
+									&& ( ( list[m].title[0]>=0x41 && list[m].title[0]<=0x5a)
+									|| (list[m].title[0]>=0x61 && list[m].title[0]<=0x7a) )
+									) continue;
+							}
+						}
+						if(m==sel) xmb[6].first=xmb[6].size;
+						toff=0;
+						if(list[m].title[0]=='_') toff=1;
+						if(strstr(list[m].path, "/dev_bdvd")==NULL) g_icon=xmb[0].data;
+						else {g_icon=xmb_icon_blu;}
+						g_iconw=320; g_iconh=176;
+						g_status=0;
+
+						if(xmb_cover_column || force_covers)
+						{
+							sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
+							if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem;}
+							sprintf(icon_path, "%s/%s.PNG", covers_dir, list[m].title_id);
+							if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem;}
+
+							if(list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=-1 && list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=1)
+							{
+								sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
+								download_cover(list[xmb[xmb_icon].member[xmb[6].size].game_id].title_id, icon_path);
+								list[xmb[xmb_icon].member[xmb[6].size].game_id].cover=1;
+							}
+						}
+
+						sprintf(icon_path, "%s/%s_320.PNG", cache_dir, list[m].title_id);
+						if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem;}
+						sprintf(icon_path, "%s/ICON0.PNG", list[m].path);
+						if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem;}
+						else {g_status=2; g_iconw=128; g_iconh=128;}
+
+add_mem:
+						if(list[m].title[0]=='_') list[m].split=1;
+						add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].path,
+						/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
+
+						if(list[m].user & IS_FAV)
+						{
+							if(m==sel) xmb[7].first=xmb[7].size;
+							add_xmb_member(xmb[7].member, &xmb[7].size, list[m].title+toff, list[m].path,
+							/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
+
+						}
+
+						sort_xmb_col(xmb[6].member, xmb[6].size, 1+ext_devs);
+					}
+				}
+				else if(!strcmp(list[m].content, "AVCHD") || !strcmp(list[m].content, "BDMV") || !strcmp(list[m].content, "DVD"))
+				{
+					if(cover_mode == MODE_XMMB) //!xmb[5].init &&
+					{
+						if(m==sel) xmb[5].first=xmb[5].size;
+						toff=0;
+
+						if(list[m].title[0]=='_') toff=1;
+						else if(strstr(list[m].title, "[Video] ")!=NULL) toff=8;
+						else if(strstr(list[m].title, "[HDD Video] ")!=NULL || strstr(list[m].title, "[DVD Video] ")!=NULL) toff=12;
+						sprintf(t_ip, "%s/HDAVCTN/BDMT_O1.jpg", list[m].path);
+						if(!exist(t_ip)) sprintf(t_ip, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", list[m].path);
+						if(!exist(t_ip)) sprintf(t_ip, "%s/POSTER.JPG", list[m].path);
+						if(!exist(t_ip)) sprintf(t_ip, "%s/COVER.JPG", list[m].path);
+						if(exist(t_ip))
+							add_xmb_member(xmb[5].member, &xmb[5].size, list[m].title+toff, list[m].content,
+							/*type*/2, /*status*/0, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*) t_ip, 0, 0);
+						else
+							add_xmb_member(xmb[5].member, &xmb[5].size, list[m].title+toff, list[m].content,
+							/*type*/2, /*status*/2, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*)"/", 0, 0);
+					}
+					else
+					{
+						if(cover_mode != MODE_XMMB)
+						{
+							if(list[m].title[0]=='_') toff=1;
+							else if(strstr(list[m].title, "[Video] ")!=NULL) toff=8;
+							else if(strstr(list[m].title, "[HDD Video] ")!=NULL || strstr(list[m].title, "[DVD Video] ")!=NULL) toff=12;
+							sprintf(t_ip, "%s/HDAVCTN/BDMT_O1.jpg", list[m].path);
+							if(!exist(t_ip)) sprintf(t_ip, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", list[m].path);
+							if(!exist(t_ip)) sprintf(t_ip, "%s/POSTER.JPG", list[m].path);
+							if(!exist(t_ip)) sprintf(t_ip, "%s/COVER.JPG", list[m].path);
+							if(!exist(t_ip)) sprintf(t_ip, "%s/NOID.JPG", app_usrdir);
+							if(exist(t_ip))
+								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].content,
+								/*type*/2, /*status*/0, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*) t_ip, 0, 0);
+							else
+								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].content,
+								/*type*/2, /*status*/2, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*)"/", 0, 0);
+							sort_xmb_col(xmb[6].member, xmb[6].size, 1+ext_devs);
+						}
+
+					}
+				}
+				if(xmb[5].size>=MAX_XMB_MEMBERS || xmb[6].size>=MAX_XMB_MEMBERS || xmb[7].size>=MAX_XMB_MEMBERS) break;
+			}
+
+			sort_xmb_col(xmb[7].member, xmb[7].size, 0);
+		}
+
+		if(cover_mode == MODE_XMMB)
+			sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
+
+		for(int m=0; m<max; m++)
+		{
+			if(!strcmp(list[m].content, "PS3"))
+			{
+				if(m==sel)
+					for(int m2=0; m2<xmb[6].size; m2++)
+						if(xmb[6].member[m2].game_id==sel) xmb[6].first=m2;
+			}
+			else if(!strcmp(list[m].content, "AVCHD") || !strcmp(list[m].content, "BDMV") || !strcmp(list[m].content, "DVD"))
+			{
+				if(m==sel)
+					for(int m2=0; m2<xmb[5].size; m2++)
+						if(xmb[5].member[m2].game_id==sel) xmb[5].first=m2;
+			}
+		}
+		if(cover_mode == MODE_XMMB)
+			if(disc_in_tray==PSX_DISC || disc_in_tray==PS2_DISC) xmb[6].first=1;
+
+		if(xmb[6].size>1 && xmb[6].first==0) xmb[6].first=1;
+		xmb[6].init=1;
+		xmb[7].init=1;
+		u8 main_group=xmb[6].group & 0x0f;
+		u8 alpha_group=xmb[6].group>>4 & 0x0f;
+
+		if(main_group)
+		{
+			if(alpha_group)
+				sprintf(xmb[6].name, "%s (%s)", genre[main_group], alpha_groups[alpha_group]);
+			else
+				sprintf(xmb[6].name, "%s", genre[main_group]);
+
+		}
+		else
+		{
+			if(alpha_group)
+				sprintf(xmb[6].name, "%s (%s)", xmb_columns[6], alpha_groups[alpha_group]);
+			else
+				sprintf(xmb[6].name, "%s", xmb_columns[6]);
+		}
+		if(xmb_icon==6) draw_xmb_icon_text(xmb_icon);
+}
+
+static void add_emulator_column()
+{
+	mod_xmb_member(xmb[8].member, 0, (char*)STR_XC1_REFRESH, (char*)STR_XC1_REFRESH3);
+	redraw_column_texts(8);
+	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || xmb[8].init) return;
+	is_retro_loading=1;
+
+	if(is_retro_loading)
+	{
+		xmb[8].init=1;
+		sys_ppu_thread_create( &addret_thr_id, add_retro_column_thread_entry, 0, misc_thr_prio-5, app_stack_size, 0, "multiMAN_add_retro" );
+	}
+}
+
+static void draw_xmb_bg()
+{
+	if(cFrame!=NULL && is_bg_video)//!canDraw &&
+	{
+		set_texture( cFrame, 1920, 1080);
+		display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
+		canDraw=true;
+	}
+	else
+	{
+		set_texture( text_bmp, 1920, 1080);
+		display_img(0, 0, 1920, 1080, xmbbg_user_w, xmbbg_user_h, 0.9f, 1920, 1080);
+	}
+}
+
+void put_texture_with_alpha_gen( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t _width, uint32_t _height, int from_width, u16 to_width, int x, int y)
+{
+	int row	 = from_width * 4;
+	int line = to_width * 4;
+	uint32_t pos_to = ( y * line) + (x * 4), cline=0;
+	uint32_t pos_from = 0;
+	uint32_t lines=0;
+	uint32_t c_pixel_N_R, c_pixel_N_G, c_pixel_N_B;
+	uint32_t c_pixelR, c_pixelG, c_pixelB, c_pixel_N_A, c_pixel;
+	uint32_t width=_width;
+	uint32_t height=_height;
+	unsigned char* bt;
+	unsigned char* btF;
+	if( (x+width) > to_width) width=(to_width-x);
+
+	for(lines=0; lines<height; lines++)
+	{
+		for(cline=0; cline<((width)*4); cline+=4)
+		{
+			btF = (uint8_t*)(buffer_from) + pos_from + cline;
+			bt = (uint8_t*)(buffer_to) + pos_to + cline;
+
+			c_pixel = *(uint32_t*)btF;
+			c_pixel_N_A = (c_pixel    ) & 0xff;
+
+			if(c_pixel_N_A)
+			{
+
+				float d_alpha  = (c_pixel_N_A / 255.0f);
+				float d_alpha1 = 1.0f-d_alpha;
+				c_pixel_N_R = (int)(buffer_from[pos_from + cline + 0] * d_alpha);
+				c_pixel_N_G = (int)(buffer_from[pos_from + cline + 1] * d_alpha);
+				c_pixel_N_B = (int)(buffer_from[pos_from + cline + 2] * d_alpha);
+
+				c_pixelR = (int)(buffer_to[pos_to + cline + 0] * d_alpha1) + c_pixel_N_R;
+				c_pixelG = (int)(buffer_to[pos_to + cline + 1] * d_alpha1) + c_pixel_N_G;
+				c_pixelB = (int)(buffer_to[pos_to + cline + 2] * d_alpha1) + c_pixel_N_B;
+
+				//keep the higher alpha
+				*(uint32_t*)bt = ((buffer_to[pos_to + cline + 3]>(c_pixel_N_A) ? buffer_to[pos_to + cline + 3] : (c_pixel_N_A) )) | (c_pixelR<<24) | (c_pixelG<<16) | (c_pixelB<<8);
+			}
+		}
+
+		pos_from+=row;
+		pos_to+=line;
+	}
+
+}
+
+static void draw_xmb_legend(const int _xmb_icon)
+{
+	if(xmb_bg_counter>30 || _xmb_icon==1 || _xmb_icon==9 || c_opacity2<=0x40 || xmb_slide_step!=0 || xmb_slide_step_y!=0 || xmb_popup==0 || key_repeat)
+		return;
+
+	if(!xmb_legend_drawn)
+	{
+		u8 _menu_font=2;
+		if(mm_locale) _menu_font=mui_font;
+
+		xmb_legend_drawn=1;
+		char xmb_text[32]; xmb_text[0]=0;
+		for(int fsr=0; fsr<84000; fsr+=4) *(uint32_t*) ((uint8_t*)(text_MSG)+fsr)=0x22222280;
+
+		if( (_xmb_icon==6 && xmb[_xmb_icon].first) || _xmb_icon==7)
+		{
+			sprintf(xmb_text, ": %s", (char*) STR_SIDE_OPT);
+			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_triangle_x*4 + dox_triangle_y	* dox_width*4), dox_triangle_w,	dox_triangle_h, dox_width, 300, 8, 5);
+		}
+
+		if((_xmb_icon>1 &&_xmb_icon<6) || (_xmb_icon==6 && xmb[_xmb_icon].first==0) || _xmb_icon==8)
+		{
+			if(_xmb_icon==2 && xmb[_xmb_icon].first>1)		 sprintf(xmb_text, "%s", (char*) STR_POP_CHANGE_S);
+			else if(_xmb_icon==2 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_VIEW_SYSINF);
+			else if(_xmb_icon==2 && xmb[_xmb_icon].first==1) sprintf(xmb_text, "%s", (char*) STR_POP_LANGUAGE);
+			else if(_xmb_icon==2 && xmb[_xmb_icon].first==2) sprintf(xmb_text, "%s", (char*) STR_POP_CACHE);
+			else if(_xmb_icon==3)							 sprintf(xmb_text, "%s", (char*) STR_POP_PHOTO);
+			else if(_xmb_icon==4)							 sprintf(xmb_text, "%s", (char*) STR_POP_MUSIC);
+			else if(_xmb_icon==5 && xmb[_xmb_icon].first<2)  sprintf(xmb_text, "%s", (char*) STR_POP_ST);
+			else if(_xmb_icon==5 && xmb[_xmb_icon].first>1)  sprintf(xmb_text, "%s", (char*) STR_POP_VIDEO);
+			else if(_xmb_icon==6 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_REF_GAMES);
+			else if(_xmb_icon==8 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_REF_ROMS);
+			else if(_xmb_icon==8 && xmb[_xmb_icon].first)	 sprintf(xmb_text, "%s", (char*) STR_POP_ROM);
+
+			if(xmb[_xmb_icon].member[xmb[_xmb_icon].first].type==0)
+			{
+				sprintf(xmb_text, ": %s", (char*) STR_CM_PROPS);
+				put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_triangle_x	*4 + dox_triangle_y	* dox_width*4), dox_triangle_w,	dox_triangle_h,	dox_width, 300, 8, 5);
+			}
+			else
+				put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, 300, 8, 5);
+		}
+
+		if(_xmb_icon==4 || _xmb_icon==6 || _xmb_icon==8)
+		{
+			if(_xmb_icon==6)
+				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_GENRE, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
+			else if(_xmb_icon==8)
+				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_EMU, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
+			else if(_xmb_icon==4)
+				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_NAME, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
+			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_square_x	*4 + dox_square_y	* dox_width*4), dox_square_w,	dox_square_h,	dox_width, 300, 8, 36);
+		}
+		else
+		{
+			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_l1_x*4 + dox_l1_y	* dox_width*4), dox_l1_w,	dox_l1_h, dox_width, 300, 8, 42);
+			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_r1_x*4 + dox_r1_y	* dox_width*4), dox_r1_w,	dox_r1_h, dox_width, 300, 8+dox_l1_w+5, 42);
+			print_label_ex( 0.475f, 0.55f, 0.6f, 0xffd0d0d0, (char*) STR_POP_SWITCH, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
+		}
+		print_label_ex( 0.17f, 0.10f, 0.6f, 0xffd0d0d0, xmb_text, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
+		flush_ttf(text_MSG, 300, 70);
+	}
+	if(c_opacity2<=0x80) change_opacity(text_MSG, -95, 84000);
+	set_texture(text_MSG, 300, 70);
+	display_img(1520, 930, 300, 70, 300, 70, -0.1f, 300, 70);
+}
+
+static void gray_texture( uint8_t *buffer_to, uint32_t width, uint32_t height, int step)
+{
+	if(gray_poster==0)
+		return;
+	uint32_t cline=0;
+	uint16_t c_pixel;
+	int line=0;
+	(void) step;
+	(void) line;
+
+	for(cline=0; cline<(width*height*4); cline+=4)
+	{
+		c_pixel = buffer_to[cline];
+		c_pixel+= buffer_to[cline + 1];
+		c_pixel+= buffer_to[cline + 2];
+		memset(buffer_to + cline, (uint8_t) (c_pixel/3), 3);
+	}
+}
+
+void put_texture_with_alpha( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t _width, uint32_t _height, int from_width, int x, int y, int border, uint32_t border_color)
+{
+	int row	 = from_width * 4;
+	int line = 1920 * 4;
+	uint32_t pos_to = ( y * line) + (x * 4), cline=0;
+	uint32_t pos_to_border = ( (y-border) * line) + ((x-border) * 4);
+	uint32_t pos_from = 0;
+	uint32_t lines=0;
+	uint32_t c_pixel_N_R, c_pixel_N_G, c_pixel_N_B;
+	uint32_t c_pixelR, c_pixelG, c_pixelB, c_pixel_N_A, c_pixel;
+	uint32_t width=_width;
+	uint32_t height=_height;
+	unsigned char* bt;
+	unsigned char* btF;
+	if( (x+width) > 1920) width=(1920-x);
+	if( (y+height) > 1080) height=(1080-y);
+
+	if(border)
+	{
+		for(lines=0; lines<(height+(border*2)); lines++)
+		{
+			for(cline=0; cline<((width+border*2)*4); cline+=4)
+			{
+				bt = (uint8_t*)(buffer_to) + pos_to_border + cline;
+				*(uint32_t*)bt = border_color;
+			}
+			pos_to_border+=line;
+		}
+	}
+
+	for(lines=0; lines<height; lines++)
+	{
+		for(cline=0; cline<((width)*4); cline+=4)
+		{
+			btF = (uint8_t*)(buffer_from) + pos_from + cline;
+			bt = (uint8_t*)(buffer_to) + pos_to + cline;
+
+			c_pixel = *(uint32_t*)btF;
+			c_pixel_N_A = (c_pixel    ) & 0xff;
+
+			if(c_pixel_N_A)
+			{
+
+				float d_alpha  = (c_pixel_N_A / 255.0f);
+				float d_alpha1 = 1.0f-d_alpha;
+				c_pixel_N_R = (int)(buffer_from[pos_from + cline + 0] * d_alpha);
+				c_pixel_N_G = (int)(buffer_from[pos_from + cline + 1] * d_alpha);
+				c_pixel_N_B = (int)(buffer_from[pos_from + cline + 2] * d_alpha);
+
+				c_pixelR = (int)(buffer_to[pos_to + cline + 0] * d_alpha1) + c_pixel_N_R;
+				c_pixelG = (int)(buffer_to[pos_to + cline + 1] * d_alpha1) + c_pixel_N_G;
+				c_pixelB = (int)(buffer_to[pos_to + cline + 2] * d_alpha1) + c_pixel_N_B;
+
+				//keep the higher alpha
+				*(uint32_t*)bt = ((buffer_to[pos_to + cline + 3]>(c_pixel_N_A) ? buffer_to[pos_to + cline + 3] : (c_pixel_N_A) )) | (c_pixelR<<24) | (c_pixelG<<16) | (c_pixelB<<8);
+			}
+		}
+
+		pos_from+=row;
+		pos_to+=line;
+	}
+
+}
+
+/****************************************************/
+/* PNG/JPEG SECTION                                 */
+/****************************************************/
+
+
+typedef struct CtrlMallocArg
+{
+	u32 mallocCallCounts;
+
+} CtrlMallocArg;
+
+
+typedef struct CtrlFreeArg
+{
+	u32 freeCallCounts;
+
+} CtrlFreeArg;
+
+void *png_malloc(u32 size, void * a)
+{
+    CtrlMallocArg *arg;
+	arg = (CtrlMallocArg *) a;
+	arg->mallocCallCounts++;
+	return memalign(16,size+16);
+}
+
+
+static int png_free(void *ptr, void * a)
+{
+    CtrlFreeArg *arg;
+  	arg = (CtrlFreeArg *) a;
+  	arg->freeCallCounts++;
+	free(ptr);
+	return 0;
+}
+
+static int load_jpg_texture(u8 *data, char *name, uint16_t _DW)
+{
+	scale_icon_h=0;
+	while(is_decoding_jpg || is_decoding_png){ cellSysutilCheckCallback();}
+	is_decoding_jpg=1;
+	int ret, ok=-1;
+	png_w=0; png_h=0;
+
+	CellJpgDecMainHandle     mHandle;
+	CellJpgDecSubHandle      sHandle;
+
+	CellJpgDecInParam        inParam;
+	CellJpgDecOutParam       outParam;
+
+	CellJpgDecSrc            src;
+	CellJpgDecOpnInfo        opnInfo;
+	CellJpgDecInfo           info;
+
+	CellJpgDecDataOutInfo    dOutInfo;
+	CellJpgDecDataCtrlParam  dCtrlParam;
+
+	CellJpgDecThreadInParam  InParam;
+	CellJpgDecThreadOutParam OutParam;
+
+	CtrlMallocArg               MallocArg;
+	CtrlFreeArg                 FreeArg;
+
+	float                    downScale;
+	bool                     unsupportFlag;
+
+	MallocArg.mallocCallCounts  = 0;
+	FreeArg.freeCallCounts      = 0;
+
+	//	InParam.spuThreadEnable   = CELL_JPGDEC_SPU_THREAD_DISABLE;
+	InParam.spuThreadEnable   = CELL_JPGDEC_SPU_THREAD_ENABLE;
+	InParam.ppuThreadPriority = 1001;
+	InParam.spuThreadPriority = 250;
+	InParam.cbCtrlMallocFunc  = png_malloc;
+	InParam.cbCtrlMallocArg   = &MallocArg;
+	InParam.cbCtrlFreeFunc    = png_free;
+	InParam.cbCtrlFreeArg     = &FreeArg;
+
+	ret = cellJpgDecCreate(&mHandle, &InParam, &OutParam);
+
+	if(ret == CELL_OK){
+
+		src.srcSelect  = CELL_JPGDEC_FILE;
+		src.fileName   = name;
+		src.fileOffset = 0;
+		src.fileSize   = 0;
+		src.streamPtr  = NULL;
+		src.streamSize = 0;
+
+		src.spuThreadEnable = CELL_JPGDEC_SPU_THREAD_ENABLE;
+
+		unsupportFlag = false;
+		ret = cellJpgDecOpen(mHandle, &sHandle, &src, &opnInfo);
+		if(ret == CELL_OK){
+
+			ret = cellJpgDecReadHeader(mHandle, sHandle, &info);
+			if(info.jpegColorSpace == CELL_JPG_UNKNOWN){
+				unsupportFlag = true;
+			}
+
+			if(ret !=CELL_OK || info.imageHeight==0)
+			{
+				src.spuThreadEnable = CELL_JPGDEC_SPU_THREAD_DISABLE;
+				unsupportFlag = false;
+				ret = cellJpgDecClose(mHandle, sHandle);
+				ret = cellJpgDecOpen(mHandle, &sHandle, &src, &opnInfo);
+				ret = cellJpgDecReadHeader(mHandle, sHandle, &info);
+				if(info.jpegColorSpace == CELL_JPG_UNKNOWN){
+					unsupportFlag = true;
+				}
+			}
+
+
+		} //decoder open
+
+		if(ret == CELL_OK){
+			if(scale_icon_h)
+			{
+				//					if(info.imageHeight>info.imageWidth)
+				if( ((float)info.imageHeight / (float)XMB_THUMB_HEIGHT) > ((float)info.imageWidth / (float) XMB_THUMB_WIDTH))
+					downScale=(float)info.imageHeight / (float)(XMB_THUMB_HEIGHT);
+				else
+					downScale=(float)info.imageWidth / (float) (XMB_THUMB_WIDTH);
+			}
+			else
+			{
+
+				if(info.imageWidth>1920 || info.imageHeight>1080){
+					if( ((float)info.imageWidth / 1920) > ((float)info.imageHeight / 1080 ) ){
+						downScale = (float)info.imageWidth / 1920;
+					}else{
+						downScale = (float)info.imageHeight / 1080;
+					}
+				}
+				else
+					downScale=1.f;
+
+				if(strstr(name, "/HDAVCTN/BDMT_O1.jpg")!=NULL || strstr(name, "/BDMV/META/DL/HDAVCTN_O1.jpg")!=NULL) downScale = (float) (info.imageWidth / 320);
+
+			}
+
+			if( downScale <= 1.f ){
+				inParam.downScale = 1;
+			}else if( downScale <= 2.f ){
+				inParam.downScale = 2;
+			}else if( downScale <= 4.f ){
+				inParam.downScale = 4;
+			}else{
+				inParam.downScale = 8;
+			}
+
+			if(downScale>8.0f)
+			{
+				png_w=0;
+				png_h=0;
+				goto leave_jpg;
+
+			}
+
+
+			inParam.commandPtr       = NULL;
+			inParam.method           = CELL_JPGDEC_FAST;
+			inParam.outputMode       = CELL_JPGDEC_TOP_TO_BOTTOM;
+			inParam.outputColorSpace = CELL_JPG_RGBA;
+			inParam.outputColorAlpha = 0xfe;
+			ret = cellJpgDecSetParameter(mHandle, sHandle, &inParam, &outParam);
+		}
+
+		if(ret == CELL_OK){
+			if(scale_icon_h && inParam.downScale)
+				dCtrlParam.outputBytesPerLine = (int) ((info.imageWidth/inParam.downScale) * 4);
+			else
+				dCtrlParam.outputBytesPerLine = _DW * 4;
+
+			ret = cellJpgDecDecodeData(mHandle, sHandle, data, &dCtrlParam, &dOutInfo);
+
+			if((ret == CELL_OK) && (dOutInfo.status == CELL_JPGDEC_DEC_STATUS_FINISH))
+			{
+				png_w= outParam.outputWidth;
+				png_h= outParam.outputHeight;
+				ok=0;
+			}
+		}
+
+leave_jpg:
+		ret = cellJpgDecClose(mHandle, sHandle);
+		ret = cellJpgDecDestroy(mHandle);
+	} //decoder create
+
+	scale_icon_h=0;
+	is_decoding_jpg=0;
+	return ret;
+}
+
+static void draw_xmb_title(u8 *buffer, xmbmem *member, int cn, u32 col1, u32 col2, u8 _xmb_col)
+{
+		memset(buffer, 0, XMB_TEXT_WIDTH*XMB_TEXT_HEIGHT*4);
+		if((_xmb_col==6 || _xmb_col==7) && xmb_game_bg)
+		{
+			print_label_ex( 0.001f, 0.03f, 1.1f, 0x80101010, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);//3.0f // /0.75f
+		}
+
+		if(_xmb_col==2 && member[cn].option_size) //settings
+			print_label_ex( 0.99f, 0.2f, 0.48f, col1, member[cn].option[member[cn].option_selected].label, 1.04f, 0.0f, 0, 3.0f, 23.0f, 2);
+
+		if(!((_xmb_col>3 && _xmb_col<8 && (member[cn].type<6 || member[cn].type==32 || member[cn].type==33 || member[cn].type==34 || member[cn].type==35 || member[cn].type==36)) || (_xmb_col==8 && member[cn].type>7) || browse_column_active))
+			print_label_ex( 0.000f, 0.52f, 0.87f, col2, member[cn].subname, 1.02f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.5f, 0); //3.0f
+
+		if(browse_column_active)
+		{
+			print_label_ex( 0.000f, 0.25f, 1.10f, col1, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);
+		}
+		else
+			print_label_ex( 0.000f, 0.02f, 1.10f, col1, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);//3.0f
+		flush_ttf(buffer, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT);
+
+		u8 *xmb_dev_icon1=xmb_icon_dev;
+		u8 *xmb_dev_icon2=xmb_icon_dev;
+		if( (_xmb_col>3 && _xmb_col<8 && (member[cn].type<6 || member[cn].type==32 || member[cn].type==33 || member[cn].type==34 || member[cn].type==35 || member[cn].type==36)) || (_xmb_col==8 && member[cn].type>7 && member[cn].type<15))
+		{
+			if(_xmb_col==6 || _xmb_col==7) xmb_dev_icon1=xmb_icon_dev;
+			else if(_xmb_col==5) xmb_dev_icon1=xmb_icon_dev+(1*8192);
+			else if(_xmb_col==4) xmb_dev_icon1=xmb_icon_dev+(2*8192);
+			else if(_xmb_col==8) xmb_dev_icon1=xmb_icon_dev+(16*8192);//retro
+
+			if(_xmb_col==8)
+			{
+				xmb_dev_icon2=xmb_icon_dev+((17+(member[cn].type-8))*8192);
+			}
+			else
+			{
+				if(strstr(member[cn].file_path, "/dev_hdd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(4*8192);
+				else if(strstr(member[cn].file_path, "/dev_usb")!=NULL) xmb_dev_icon2=xmb_icon_dev+(5*8192);
+				else if(strstr(member[cn].file_path, "/dev_bdvd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(6*8192);
+				else if(strstr(member[cn].file_path, "/pvd_usb")!=NULL) xmb_dev_icon2=xmb_icon_dev+(7*8192);
+				else if(strstr(member[cn].file_path, "/dev_sd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(13*8192);
+				else if(strstr(member[cn].file_path, "/dev_ms")!=NULL) xmb_dev_icon2=xmb_icon_dev+(14*8192);
+				else if(strstr(member[cn].file_path, "/dev_cf")!=NULL) xmb_dev_icon2=xmb_icon_dev+(15*8192);
+				if(_xmb_col==6 && (member[cn].type==35  || member[cn].type==36))
+				{
+					if(member[cn].type==36) xmb_dev_icon2=xmb_icon_dev+( 6*8192); //psx //22
+					if(member[cn].type==35) xmb_dev_icon2=xmb_icon_dev+(23*8192); //ps2
+				}
+			}
+			int nip=0;
+			put_texture_with_alpha_gen( buffer, xmb_dev_icon1, 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;
+			if(_xmb_col==5)
+			{
+				if(!strcmp(member[cn].subname, "AVCHD"))
+					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(10*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
+				else if(!strcmp(member[cn].subname, "BDMV") || member[cn].type==34)
+					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(11*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
+				else if(!strcmp(member[cn].subname, "DVD") || member[cn].type==33)
+					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(12*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
+			}
+			if(member[cn].type!=0)
+				{put_texture_with_alpha_gen( buffer, xmb_dev_icon2, 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
+
+			if(_xmb_col==6 && member[cn].game_id>=0 && member[cn].game_id<max_menu_list)
+			{
+				if(member[cn].game_user_flags & IS_FAV)
+				{put_texture_with_alpha_gen( buffer, xmb_icon_dev+(8*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
+			}
+			if((_xmb_col==6 || _xmb_col==7) && member[cn].game_id>=0 && member[cn].game_id<max_menu_list)
+			{
+				if(member[cn].game_split==1)
+				{put_texture_with_alpha_gen( buffer, xmb_icon_dev+(9*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
+			}
+
+		}
+
+}
+
+static int find_free_buffer(const int _col)
+{
+	(void) _col;
+	int n;
+	for(n=0; n<MAX_XMB_THUMBS; n++)
+	{
+		if(xmb_icon_buf[n].used==-1) return n;
+	}
+
+	if( (xmb_icon==3 || xmb_icon==4) && !browse_column_active)
+	{
+		if(xmb_icon==3)
+		{
+			for(n=0; n<xmb[3].size; n++)
+			{
+				if(xmb[3].member[n].icon!=xmb_icon_photo  && xmb[3].member[n].icon!=xmb_icon_folder && xmb[3].member[n].icon!=xmb_icon_usb && (n<(xmb[3].first-3) || n>(xmb[3].first+7)))
+				{
+					xmb[3].member[n].icon_buf=-1;
+					xmb[3].member[n].status=0;
+					xmb[3].member[n].icon=xmb_icon_photo;
+				}
+			}
+		}
+		else
+		{
+			for(n=0; n<xmb[4].size; n++)
+			{
+				if(xmb[4].member[n].icon!=xmb_icon_note  && xmb[4].member[n].icon!=xmb_icon_folder && xmb[4].member[n].icon!=xmb_icon_usb && (n<(xmb[4].first-3) || n>(xmb[4].first+7)))
+				{
+					xmb[4].member[n].icon_buf=-1;
+					xmb[4].member[n].status=0;
+					xmb[4].member[n].icon=xmb_icon_note;
+				}
+			}
+		}
+
+	 	for(n=0; n<MAX_XMB_THUMBS; n++) xmb_icon_buf[n].used=-1;
+		return 0;
+	}
+
+	else
+		free_all_buffers();
+
+	return 0;
+}
+
+// Draws the cross MM bar (XMMB)
+static void draw_xmb_icons(xmb_def *_xmb, const int _xmb_icon_, int _xmb_x_offset, int _xmb_y_offset, const bool _recursive, int sub_level, int _bounce)
+{
+	int _xmb_icon = _xmb_icon_;
+
+	int first_xmb=_xmb_icon-2;
+	int xpos, _xpos;
+	u8 subicons = (sub_level!=-1);
+	if(sub_level<0) sub_level=0;
+	_xpos=-90+_xmb_x_offset - (200*sub_level);
+	int ypos=0, tw=0, th=0;
+	u16 icon_x=0;
+	u16 icon_y=0;
+	int mo_of=0;
+	float mo_of2=0.0f;
+	bool one_done=false;
+	int bounce_step=0;
+
+	if(_xmb_icon>3 && _xmb_x_offset>0) {first_xmb--; _xpos-=200;}
+	for(int n=first_xmb; n<MAX_XMB_ICONS; n++)
+	{
+		_xpos+=200;
+		xpos = _xpos;
+
+		_xmb_icon = _xmb_icon_;
+		if(_xmb_x_offset>=100 && _xmb_icon>1 && !subicons) {_xmb_icon--; }
+		if(_xmb_x_offset<=-100 && _xmb_icon<MAX_XMB_ICONS-1 && !subicons) {_xmb_icon++;}
+
+		if(n<1) continue;
+		if(sub_level && n!=xmb_icon) continue;
+
+		set_texture(_xmb[n].data, 128, 128); //icon
+		mo_of=abs((int)(_xmb_x_offset*0.18f));
+		if(_xmb[_xmb_icon].first>=_xmb[_xmb_icon].size) _xmb[_xmb_icon].first=0;
+		if(n==_xmb_icon_)
+		{
+			display_img(xpos-(36-mo_of)/2, 230-(36-mo_of) - _bounce, 164-mo_of, 164-mo_of, 128, 128, 0.8f, 128, 128);
+			set_texture(xmb_col, 300, 30); //column name
+			display_img(xpos-86, 340 - _bounce, 300, 30, 300, 30, 0.7f, 300, 30);
+			int orphans=0;
+
+			if(_xmb[_xmb_icon].size>0 && subicons && !(key_repeat && ( (old_pad & BUTTON_LEFT) || (old_pad & BUTTON_RIGHT)) && (xmb_icon!=1 && xmb_icon!=MAX_XMB_ICONS-1)) && (abs(_xmb_x_offset)<100 || _xmb_icon != _xmb_icon_))
+			{
+				xpos = _xpos;
+				if(_xmb_x_offset>=100 && !subicons) xpos-=200;
+				if(_xmb_x_offset<=-100 && !subicons) xpos+=200;
+
+				int cn;
+				int cn3=1;
+				int first_xmb_mem = _xmb[_xmb_icon].first;
+				int cnmax=3;
+				if(_xmb[_xmb_icon].first>2 && _xmb_y_offset>0) {first_xmb_mem--; cn3--;}
+
+				for(int m=0;m<4;m++) // make it pleasureable to watch while loading column
+				{
+					if(m==1)
+					{
+						cn3=0;
+						first_xmb_mem = _xmb[_xmb_icon].first-1;
+						cnmax=1;
+					}
+
+					if(m==2)
+					{
+						cn3=-1;
+						first_xmb_mem = _xmb[_xmb_icon].first-2;
+						cnmax=0;
+					}
+
+					if(m==3)
+					{
+						cn3=3;
+						first_xmb_mem = _xmb[_xmb_icon].first+2;
+						cnmax=8;
+					}
+
+					if(_xmb[_xmb_icon].first>2 && _xmb_y_offset>0) {first_xmb_mem--; cn3--;}
+
+					for(cn=first_xmb_mem; (cn<_xmb[_xmb_icon].size && cn3<cnmax); cn++)
+					{
+
+						cn3++;
+						if(cn<0) continue;
+						if(sub_level && cn3!=2) continue;
+
+						if(!_xmb[_xmb_icon].member[cn].is_checked && !key_repeat)
+						{	// check for missing/orphan entries in photo/music/video/retro columns
+							if( ( (_xmb_icon>2 && _xmb_icon<6) || _xmb_icon==8)
+								&& (_xmb[_xmb_icon].member[cn].type>7 || _xmb[_xmb_icon].member[cn].type==0 || _xmb[_xmb_icon].member[cn].type==0 || (_xmb[_xmb_icon].member[cn].type>1 && _xmb[_xmb_icon].member[cn].type<6) )
+								&& (!exist(_xmb[_xmb_icon].member[cn].file_path))
+							)
+
+							{
+								delete_xmb_member(_xmb[_xmb_icon].member, &_xmb[_xmb_icon].size, cn);
+								if(cn>=_xmb[_xmb_icon].size) break;
+								if(!orphans) orphans=cn;
+							}
+							else
+								_xmb[_xmb_icon].member[cn].is_checked=true;
+						}
+
+						tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
+						if(tw>320 || th>176)
+						{
+							if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
+							else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
+							if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
+							if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
+						}
+
+						if(cn3!=2) {tw/=2; th/=2;}
+						else
+						{
+							tw=(int) ( (float)tw*(  (1.f+(float)_bounce/90.f) ) );
+							th=(int) ( (float)th*(  (1.f+(float)_bounce/90.f) ) );
+						}
+
+						mo_of2=2.f-(abs(_xmb_y_offset)/90.0f);
+
+						if( (_xmb_y_offset!=0) )
+						{
+							if( (_xmb_y_offset>0 && cn3==1) || (_xmb_y_offset<0 && cn3==3) )
+							{
+								tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
+								if(tw>320 || th>176)
+								{
+									if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
+									else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
+									if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
+									if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
+								}
+								tw=(int)(tw/mo_of2); th=(int)(th/mo_of2);
+							}
+							else if( (_xmb_y_offset!=0 && cn3==2))
+							{
+								tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
+								if(tw>320 || th>176)
+								{
+									if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
+									else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
+									if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
+									if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
+								}
+								tw=(int)(tw/(3.f-mo_of2)); th=(int)(th/(3.f-mo_of2));
+							}
+						}
+
+						if(cn3<1) ypos=cn3*90+_xmb_y_offset - _bounce;
+						else if(cn3==1) ypos=cn3*90 - _bounce + ( (_xmb_y_offset>0) ? (int)(_xmb_y_offset*3.566f) : (_xmb_y_offset) );
+						else if(cn3==2) {ypos = 411 - _bounce + ( (_xmb_y_offset>0) ? (int)(_xmb_y_offset*2.377f) : (int)(_xmb_y_offset*3.566f) );}
+						else if(cn3==3) ypos=(cn3-3)*90 + 625 + _bounce + ( (_xmb_y_offset>0) ? _xmb_y_offset : (int)(_xmb_y_offset*2.377f) );
+						else if(cn3 >3) ypos=(cn3-3)*90 + 625 + _bounce + _xmb_y_offset;
+
+						if(sub_level>0)
+						{
+							icon_x=xpos+80+tw/2;
+							icon_y=ypos+th/2-15;
+							set_texture(xmb_icon_arrow+((int)(angle*0.0388f))*3600, 30, 30); //pulsing back arrow
+							display_img(icon_x, icon_y, 30, 30, 30, 30, 0.4f, 30, 30);
+						}
+
+						if(browse_column_active && sub_level>0) goto skip_xmb_texts;
+
+						if(_xmb[_xmb_icon].member[cn].data==-1 && _xmb_x_offset==0 && !one_done)
+						{
+							one_done=true;
+							if(xmb_txt_buf_max>=MAX_XMB_TEXTS) {redraw_column_texts(_xmb_icon); xmb_txt_buf_max=0;}
+							_xmb[_xmb_icon].member[cn].data=xmb_txt_buf_max;
+							draw_xmb_title(xmb_txt_buf[xmb_txt_buf_max].data, _xmb[_xmb_icon].member, cn, COL_XMB_TITLE, COL_XMB_SUBTITLE, _xmb_icon);
+							xmb_txt_buf_max++;
+						}
+
+						if(_xmb[_xmb_icon].member[cn].data!=-1 && ((ss_timer<dim_setting && dim_setting) || _xmb[_xmb_icon].first==cn || dim_setting==0) && abs(_xmb_x_offset)<100)
+						{
+							u8 xo1=(_xmb_y_offset>0 ? 1 : 0);
+							u8 xo2=1-xo1;
+							if( ((_xmb_icon==6 || _xmb_icon==7) && ((cn>=_xmb[_xmb_icon].first-xo1 && cn<=_xmb[_xmb_icon].first+xo2 && _xmb_y_offset!=0) || cn==_xmb[_xmb_icon].first) )
+								|| (_xmb_icon!=6 && _xmb_icon!=7))
+							{
+								a_dynamic=(int)angle_dynamic(160, 255);
+								if(cn3==2 && _xmb_x_offset==0 && _xmb_y_offset==0 && _xmb[_xmb_icon].member[cn].data!=-1)
+								{
+									if(abs(a_dynamic-a_dynamic2)>5)
+									{
+										a_dynamic2=a_dynamic;
+										draw_xmb_title(text_legend, _xmb[_xmb_icon].member, cn, ((COL_XMB_TITLE & 0x00ffffff) | (a_dynamic<<24)), COL_XMB_SUBTITLE, _xmb_icon);
+									}
+									set_texture(text_legend, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //text
+
+								}
+								else
+									set_texture(xmb_txt_buf[_xmb[_xmb_icon].member[cn].data].data, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //text
+
+								if(bounce) bounce_step=bounce*5/3+10; else bounce_step=0;
+
+								if(_xmb_icon!=6 && _xmb_icon!=7)
+									display_img(xpos+((_xmb_icon==3 || _xmb_icon==5 || _xmb_icon==8)?(230+bounce_step):(128+tw/2)), ypos+th/2-XMB_TEXT_HEIGHT/2, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, 0.5f, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //(int)(XMB_TEXT_WIDTH*(1.f-abs((float)_xmb_x_offset)/200.f))
+								else
+									display_img(xpos+128+tw/2, ypos+th/2-XMB_TEXT_HEIGHT/2, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, 0.5f, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //(int)(XMB_TEXT_WIDTH*(1.f-abs((float)_xmb_x_offset)/200.f))
+
+							}
+						}
+
+skip_xmb_texts:
+						if((_xmb[_xmb_icon].member[cn].status==1 || _xmb[_xmb_icon].member[cn].status==0) && !_recursive && !key_repeat && !(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading))
+						{
+							if(_xmb[_xmb_icon].member[cn].status==0)
+							{
+								_xmb[_xmb_icon].member[cn].status=1;
+								xmb_icon_buf_max=find_free_buffer(_xmb_icon);
+								xmb_icon_buf[xmb_icon_buf_max].used=cn;
+								xmb_icon_buf[xmb_icon_buf_max].column=_xmb_icon;
+
+								_xmb[_xmb_icon].member[cn].icon = xmb_icon_buf[xmb_icon_buf_max].data;
+								_xmb[_xmb_icon].member[cn].icon_buf=xmb_icon_buf_max;
+							}
+
+							if(_xmb_icon==5 || _xmb_icon==3 || _xmb_icon==8)
+							{
+								if(_xmb_icon!=3 && (strstr(_xmb[_xmb_icon].member[cn].icon_path,".png")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".PNG")!=NULL))
+									load_png_threaded( _xmb_icon, cn);
+								else
+									load_jpg_threaded( _xmb_icon, cn);
+							}
+							else
+							{
+								if(strstr(_xmb[_xmb_icon].member[cn].icon_path,".JPG")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".mp3")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".MP3")!=NULL)
+									load_jpg_threaded( _xmb_icon, cn);
+								else
+									load_png_threaded( _xmb_icon, cn);
+							}
+						}
+						if(_xmb[_xmb_icon].member[cn].status==1 || (_xmb[_xmb_icon].member[cn].status==0 && (_recursive || key_repeat)) || (_xmb[_xmb_icon].member[cn].status!=2 && (is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)))
+						{
+							tw=128; th=128;
+							if(cn3!=2) {tw/=2; th/=2;}
+							icon_x=xpos+64-tw/2;
+							icon_y=ypos;
+
+							set_texture(_xmb[0].data, 128, 128); //icon
+							display_img_angle(icon_x, icon_y, tw, th, 128, 128, 0.5f, 128, 128, angle);
+
+						}
+
+						if(_xmb[_xmb_icon].member[cn].status==2)
+						{
+							icon_x=xpos+64-tw/2;
+							icon_y=ypos;
+
+							if(_xmb[_xmb_icon].member[cn].icon==xmb_icon_blend)
+							{
+								change_opacity(xmb_icon_blend, -95, KB(64));
+								xmb_icon_blend_val+=1;
+								if(xmb_icon_blend_val>58)
+								{
+									xmb_icon_blend_val=0;
+									xmb_icon_blend_mem++;
+									if(xmb_icon_blend_mem>2) xmb_icon_blend_mem=0;
+									if(xmb_icon_blend_mem==0) memcpy(xmb_icon_blend, xmb_icon_psx, 65536);
+									else if(xmb_icon_blend_mem==1) memcpy(xmb_icon_blend, xmb_icon_dvd, 65536);
+									else if(xmb_icon_blend_mem==2) memcpy(xmb_icon_blend, xmb_icon_blu, 65536);
+								}
+							}
+							set_texture(_xmb[_xmb_icon].member[cn].icon, _xmb[_xmb_icon].member[cn].iconw, _xmb[_xmb_icon].member[cn].iconh);
+
+							if( ((is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)
+								&& ( (_xmb_icon==1 && cn==2) || (_xmb_icon==6 && cn==0) || (_xmb_icon==8 && cn==0)
+								))
+								)
+							display_img_angle(icon_x, icon_y,
+								tw,
+								th,
+								tw,
+								th,
+								0.5f,
+								tw,
+								th, angle);
+
+							else
+							{
+								display_img(icon_x, icon_y,	tw,	th,	tw,	th,	0.5f, tw,	th);
+								if( (_xmb_icon==4 && current_mp3 && current_mp3<MAX_MP3 && !is_theme_playing && (!strcmp(mp3_playlist[current_mp3].path, _xmb[_xmb_icon].member[cn].file_path) ||
+									(!_xmb[_xmb_icon].member[cn].type && strstr(mp3_playlist[current_mp3].path, _xmb[_xmb_icon].member[cn].file_path)!=NULL)
+									) ) )
+								{
+									if(update_ms || (!update_ms && (time(NULL)&1)))
+									{
+										set_texture(_xmb[4].data, 128, 128); //icon
+										display_img(icon_x-48, icon_y-16, 32, 32, 128, 128, 0.45f, 128, 128);
+									}
+									set_texture(_xmb[0].data, 128, 128); //icon
+									display_img_angle(icon_x-64, icon_y-32, 64, 64, 128, 128, 0.4f, 128, 128, angle);
+								}
+							}
+
+						}
+
+						if(browse_column_active && sub_level>0)
+							draw_browse_column( xmb, xmb_icon, xmb0_slide, xmb0_slide_y, 0, 0);
+					}
+				}
+			}
+
+			if(orphans && orphans<_xmb[_xmb_icon].size) sort_xmb_col(_xmb[_xmb_icon].member, _xmb[_xmb_icon].size, orphans);
+
+		}
+		else
+		{
+			if(n==xmb_icon-1 && _xmb_x_offset>0) display_img(xpos-(mo_of)/2, 230-(mo_of) - _bounce, 128+mo_of, 128+mo_of, 128, 128, 0.0f, 128, 128);
+			else if(n==xmb_icon+1 && _xmb_x_offset<0) display_img(xpos-(mo_of)/2, 230-(mo_of) - _bounce, 128+mo_of, 128+mo_of, 128, 128, 0.0f, 128, 128);
+			else display_img(xpos, 230 - _bounce, 128, 128, 128, 128, 0.0f, 128, 128);
+		}
+
+	}
+
+	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)
+	{
+		if(is_any_xmb_column)
+			set_texture(xmb_icon_help, 128, 128);
+		else
+			set_texture(_xmb[0].data, 128, 128);
+		display_img_angle(1770, 74, 64, 64, 128, 128, 0.6f, 128, 128, angle);
+
+		if(time(NULL)&1)
+		{
+			if(is_any_xmb_column) set_texture(_xmb[is_any_xmb_column].data, 128, 128);
+			else if(is_browse_loading) set_texture(xmb_icon_usb, 128, 128);
+			else if(is_game_loading) set_texture(_xmb[6].data, 128, 128);
+			else if(is_video_loading) set_texture(_xmb[5].data, 128, 128);
+			else if(is_music_loading) set_texture(_xmb[4].data, 128, 128);
+			else if(is_photo_loading) set_texture(_xmb[3].data, 128, 128);
+			else if(is_retro_loading) set_texture(_xmb[8].data, 128, 128);
+
+			display_img(1834, 74, 64, 64, 128, 128, 0.6f, 128, 128);
+		}
+	}
+	else
+		if((ftp_clients && time(NULL)&2) || (http_active && time(NULL)&1) )
+		{
+			set_texture((http_active?xmb[9].data:xmb_icon_ftp), 128, 128);
+			display_img(1770, 74, 64, 64, 128, 128, 0.0f, 128, 128);
+		}
+}
+
+static void draw_whole_xmb(u8 mode)
+{
+	char filename[1024];
+	xmb0_icon=xmb_icon; if(browse_column_active) xmb0_icon=0;
+	drawing_xmb=1;
+	if(bounce<0) bounce=0;
+	if(mode)
+	{
+		pad_read();
+		if(browse_column_active)
+		{
+			read_pad_info_browse();
+			xmb_sublevel=1;
+		}
+		else
+			read_pad_info();
+		ClearSurface();
+	}
+
+	if((xmb_icon>1 && xmb_icon<6 && !is_game_loading) || xmb_icon==8) xmb_bg_counter--;
+
+	if(browse_column_active && xmb[0].init==0) add_browse_column();
+	else if(xmb_icon==5 && xmb[5].init==0) add_video_column();// && xmb_bg_counter<100
+	else if(xmb_icon==4 && xmb[4].init==0) add_music_column();
+	else if(xmb_icon==3 && xmb[3].init==0) add_photo_column();
+
+	else if((xmb_icon==6 && xmb[6].init==0) || (xmb_icon==7 && xmb[7].init==0)) add_game_column(menu_list, max_menu_list, game_sel, (cover_mode != MODE_XMMB));
+
+	else if(xmb_icon==8 && xmb[8].init==0) add_emulator_column();
+
+	if(xmb_slide_step!=0 || xmb_slide_step_y!=0 || (xmb_game_bg==0 && xmb_cover==0) || is_game_loading) xmb_bg_show=0;
+	if(!use_drops) if(xmb_sparks&1 || (xmb_sparks==2 && xmb_bg_show==0)) draw_stars();
+
+	if(!is_caching)
+	{
+		if(!xmb_bg_show || is_game_loading)
+			draw_xmb_bg();
+		else
+		{
+			set_texture( text_FONT, 1920, 1080);
+			display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
+		}
+	}
+
+	if(use_drops) if(xmb_sparks&1 || (xmb_sparks==2 && xmb_bg_show==0)) draw_stars();
+
+	draw_xmb_clock(xmb_clock, 0);
+	draw_xmb_legend(xmb_icon);
+	draw_xmb_info();
+
+	if(xmb_slide_step!=0) //xmmb sliding horizontally
+	{
+		xmb_slide+=xmb_slide_step+xmb_slide_step*video_mode;
+		if(xmb_slide == 180)  xmb_slide_step= 2;
+		else if(xmb_slide ==-180)  xmb_slide_step=-2;
+		else if(xmb_slide >= 200) {xmb_slide_step= 0; if(xmb_icon==3) free_all_buffers(); xmb_icon--; xmb_slide=0; draw_xmb_icon_text(xmb_icon); parental_pin_entered=0;}
+		else if(xmb_slide <=-200) {xmb_slide_step= 0; if(xmb_icon==3) free_all_buffers(); xmb_icon++; xmb_slide=0; draw_xmb_icon_text(xmb_icon); parental_pin_entered=0;}
+
+		if(xmb_icon>MAX_XMB_ICONS-1) xmb_icon=MAX_XMB_ICONS-1;
+		else if(xmb_icon<1) xmb_icon=1;
+		if(xmb_slide_step==0) xmb_bg_counter=200;
+	}
+
+	if(xmb_slide_step_y!=0) //xmmb sliding vertically
+	{
+		xmb_slide_y+=xmb_slide_step_y+xmb_slide_step_y*video_mode;
+			 if(xmb_slide_y == 20) xmb_slide_step_y = 5;
+		else if(xmb_slide_y ==-20) xmb_slide_step_y =-5;
+		else if(xmb_slide_y == 60) xmb_slide_step_y = 2;
+		else if(xmb_slide_y ==-60) xmb_slide_step_y =-2;
+		else if(xmb_slide_y == 80) xmb_slide_step_y = 1;
+		else if(xmb_slide_y ==-80) xmb_slide_step_y =-1;
+		else if(xmb_slide_y >= 90) {xmb_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[xmb_icon].first>0) xmb[xmb_icon].first--; xmb_slide_y=0;}
+		else if(xmb_slide_y <=-90) {xmb_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[xmb_icon].first<xmb[xmb_icon].size-1) xmb[xmb_icon].first++; xmb_slide_y=0;}
+		if(xmb_slide_step_y==0) xmb_bg_counter=200;
+	}
+
+	if(xmb0_slide_step_y!=0 && browse_column_active) //xmmb browse column sliding vertically
+	{
+		xmb0_slide_y+=xmb0_slide_step_y+xmb0_slide_step_y*video_mode;
+			 if(xmb0_slide_y == 40) xmb0_slide_step_y = 5;
+		else if(xmb0_slide_y ==-40) xmb0_slide_step_y =-5;
+		else if(xmb0_slide_y == 80) xmb0_slide_step_y = 2;
+		else if(xmb0_slide_y ==-80) xmb0_slide_step_y =-2;
+		else if(xmb0_slide_y >= 90) {xmb0_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[0].first>0) xmb[0].first--; xmb0_slide_y=0;}
+		else if(xmb0_slide_y <=-90) {xmb0_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[0].first<xmb[0].size-1) xmb[0].first++; xmb0_slide_y=0;}
+		if(xmb0_slide_step_y==0) xmb_bg_counter=200;
+	}
+
+	if( (xmb_icon==6 || xmb_icon==7) && xmb[xmb_icon].size) // && max_menu_list>0
+	{
+		if(xmb_bg_counter>0 && !xmb_bg_show && !is_game_loading) xmb_bg_counter--;
+		if(xmb_bg_counter==0 && !xmb_bg_show && xmb_slide_step==0 && xmb_slide_step_y==0 && (xmb_game_bg==1 || xmb_cover==1) && (xmb_icon!=6 || (xmb_icon==6 && xmb[xmb_icon].first)) && !is_game_loading)
+		{
+			sprintf(filename, "%s/%s_1920.PNG", cache_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
+			if(exist(filename) && xmb_game_bg==1 && strstr(filename, "AVCHD_1920.PNG")==NULL && strstr(filename, "NO_ID_1920.PNG")==NULL)
+			{
+				load_png_texture(text_FONT, filename, 1920);
+				if(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].split==1 || menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title[0]=='_') gray_texture(text_FONT, 1920, 1080, 0);
+			}
+			else memcpy(text_FONT, text_bmp, 8294400);
+
+			if(xmb_cover==1)// && xmb_icon==6)
+			{
+				if(xmb_cover_column)
+				{
+					sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
+					if(exist(filename))
+					load_png_texture(text_FONT+4419016, filename, 1920);//(575*1920+814)*4
+				}
+				else
+				{
+					sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
+					char cvstr [128];
+					if(exist(filename))
+						{
+							sprintf(cvstr, "%s/CBOX3.PNG", app_usrdir);
+							if(exist(cvstr)){
+								load_texture(text_TEMP, cvstr, 349);
+								put_texture_with_alpha( text_FONT, text_TEMP, 349, 356, 349, 785, 550, 0, 0);
+							}
+
+							load_jpg_texture(text_FONT+4419256, filename, 1920);//(575*1920+814)*4
+
+							sprintf(filename, "%s/GLC.PNG", app_usrdir);
+							if(exist(filename))
+							{
+								load_texture(text_TEMP, filename, 260);
+								put_texture_with_alpha( text_FONT, text_TEMP, 260, 300, 260, 814, 575, 0, 0);
+							}
+						}
+					else
+					{
+						if(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover!=-1 && menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover!=1)
+						{
+							download_cover(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id, filename);
+							menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover=1;
+						}
+						sprintf(filename, "%s/%s.PNG", covers_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
+						if(exist(filename))
+						{
+							sprintf(cvstr, "%s/CBOX3.PNG", app_usrdir);
+							if(exist(cvstr)){
+								load_png_texture(text_TEMP, cvstr, 349);
+								put_texture_with_alpha( text_FONT, text_TEMP, 349, 356, 349, 785, 550, 0, 0);
+							}
+							load_texture(text_FONT+(575*1920+814)*4, filename, 1920);
+
+							sprintf(filename, "%s/GLC.PNG", app_usrdir);
+							if(exist(filename))
+							{
+								load_texture(text_TEMP, filename, 260);
+								put_texture_with_alpha( text_FONT, text_TEMP, 260, 300, 260, 814, 575, 0, 0);
+							}
+
+						}
+					}
+				}
+			}
+				xmb_bg_show=1;
+
+		}
+	}
+
+	draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, bounce);
+	if((xmb_icon==6 || xmb_icon==7 || xmb_icon==5) && xmb[xmb_icon].member[xmb[xmb_icon].first].game_id!=-1) game_sel=xmb[xmb_icon].member[xmb[xmb_icon].first].game_id;
+	if(xmb_icon==2) xmb_settings_sel=xmb[2].first;
+
+	if(mode) flip();
+
+	drawing_xmb=0;
+}
+
+static void wait_dialog()
+{
+
+	while(!dialog_ret)
+	{
+
+		if(init_finished)
+		{
+			if(cover_mode == MODE_XMMB)
+				draw_whole_xmb(xmb_icon);
+			else if(cover_mode == MODE_FILEMAN)
+			{
+				ClearSurface();
+				draw_fileman();
+				flip();
+			}
+		}
+		else
+		{
+			flip();
+			sys_timer_usleep(1668);
+		}
+	}
+
+
+	cellMsgDialogClose(60.0f);
+	setRenderColor();
+	if(cover_mode == MODE_XMMB && init_finished)
+	{
+		for(int jw=0; jw < 40; jw++)
+		{
+			draw_whole_xmb(xmb_icon);
+		}
+	}
+}
+
+static void wait_dialog_simple()
+{
+
+	while(!dialog_ret)
+	{
+		sys_timer_usleep(1668);
+		flip();
+	}
+
+	cellMsgDialogClose(60.0f);
+	setRenderColor();
+}
+
+void load_localization(int id, bool force)
+{
+	MM_LocaleSet(0);
+	mui_font = locales[0].font_id;
+	if(id)
+	{
+		int id2=0;
+		for(int n=0;n<MAX_LOCALES;n++) if(locales[n].val==id) {id2=n; break;}
+		char lfile[128];
+		sprintf(lfile, "%s/lang/LANG_%s.TXT", app_usrdir, locales[id2].id);
+		int llines = MM_LocaleInit ( lfile );
+		if(llines==STR_LAST_ID)
+		{
+			MM_LocaleSet (1);
+			if(locales[id2].font_id!=4 || force)
+			{
+				mui_font = locales[id2].font_id;
+				user_font = locales[id2].font_id;
+			}
+		}
+		else
+		{
+			mm_locale=0;
+			MM_LocaleSet(0);
+			mui_font = locales[0].font_id;
+			char errlang[512];
+			sprintf(errlang, "Localization file for %s (%s) language is missing or incomplete!\n\n%s: %i lines read, but %i expected!\n\nRestart multiMAN while holding L2+R2 for \"Debug Mode\" to generate LANG_DEFAULT.TXT\nwith all required localization labels.", locales[id2].eng_name, locales[id2].loc_name, lfile, llines, STR_LAST_ID);
+			dialog_ret=0;
+			cellMsgDialogOpen2( type_dialog_ok, errlang, dialog_fun2, (void*)0x0000aaab, NULL );
+			wait_dialog_simple();
+		}
+	}
+	if (mui_font>4 && mui_font<10) mui_font+=5;
+
+	for(int n=0; n<16; n++) sprintf(genre[n],		  "%s", (const char*)MM_STRING(210+n));
+	for(int n=0; n< 6; n++) sprintf(retro_groups[n],  "%s", (const char*)MM_STRING(226+n));
+							sprintf(alpha_groups[14], "%s", (const char*)STR_OTHER);
+							sprintf(retro_groups[6],  "%s", (const char*)"PSX");
+							sprintf(retro_groups[7],  "%s",	(const char*)"PS2");
+							sprintf(retro_groups[8],  "%s", (const char*)"PSP");
+
+							sprintf(xmb_columns[0], "Empty");
+							sprintf(xmb_columns[1], "multiMAN");
+	for(int n=2; n<8 ; n++) sprintf(xmb_columns[n], "%s", (const char*)MM_STRING(230+n));	// 232-237
+							sprintf(xmb_columns[8], "%s", (const char*)STR_GRP_RETRO);		// Retro
+							sprintf(xmb_columns[9], "%s", (const char*)MM_STRING(238));		// Web
+
+	for(int n=0; n<MAX_XMB_ICONS ; n++) sprintf(xmb[n].name, "%s", xmb_columns[n]);
+
+}
+
+u64 is_size(char *path)
+{
+	struct CellFsStat s;
+	if(cellFsStat(path, &s)==CELL_FS_SUCCEEDED)
+		return s.st_size;
+	else
+		return 0;
+}
+
+
+static inline int rndv(int maxval)
+{
+	return (int) ((float)rand() * ((float)maxval / (float)RAND_MAX));
+}
+
+#if (CELL_SDK_VERSION>0x210001)
+static void usbdev_init(int check)
+{
+	FILE *fid;
+	int vid, pid;
+	DEV_INFO *usbdev;
+	int32_t r;
+	char usbcfg[128];
+	sprintf(usbcfg, "%s/USB.CFG", app_usrdir);
+
+	fid = fopen(usbcfg, "r");
+	if (!fid)
+		return;
+
+	while (fscanf(fid, "%x:%x:%i", &vid, &pid, &max_usb_volumes) != EOF) {
+		if ((usbdev = (DEV_INFO *)malloc(sizeof(DEV_INFO))) == NULL)
+			break;
+
+		if(check)
+		{
+			if ((r = PfsmDevAdd(vid, pid, &usbdev->dev))) {
+				free(usbdev);
+			} else {
+				usbdev->next = dev_info;
+				dev_info = usbdev;
+			}
+		}
+	}
+
+	fclose(fid);
+
+}
+
+static void usbdev_uninit(void)
+{
+	DEV_INFO *usbdev;
+
+	while ((usbdev = dev_info)) {
+		dev_info = usbdev->next;
+		PfsmDevDel(&usbdev->dev);
+		free(usbdev);
+	}
+}
+#endif
+
+static void flipc(int _fc)
+{
+	for(int i = 0; i < _fc; i++)
+	{
+		ClearSurface();
+		flip();
+	}
+}
+
+#define get_free_memory() system_call_1(352, (uint64_t) &meminfo);
+
+
+static void pad_reset()
+{
+	for(int n = 0; n < 7; n++)
+	{
+		new_pad_t[n]=0;
+		old_pad_t[n]=0;
+		old_info [n]=0;
+	}
+	new_pad=0; old_pad=0;
+}
+
+static void pad_motor( u8 m1, u8 m2)
+{
+		_CellPadActParam[0].motor[0]=m1;
+		_CellPadActParam[0].motor[1]=m2;
+		_CellPadActParam[0].reserved[0]=0;
+		_CellPadActParam[0].reserved[1]=0;
+		_CellPadActParam[0].reserved[2]=0;
+		_CellPadActParam[0].reserved[3]=0;
+		_CellPadActParam[0].reserved[4]=0;
+		_CellPadActParam[0].reserved[5]=0;
+		for(u8 n=0;n<7;n++)
+			cellPadSetActDirect(n, &_CellPadActParam[0]);
+		sys_timer_usleep(250*1000);
+		use_motor=false;
+}
+
+static void screen_saver()
 {
 		if(!www_running) pad_read();
 		c_opacity_delta=0; new_pad=0; old_pad=0;
@@ -2322,65 +4461,7 @@ bool is_snes9x(char *rom)
 }
 
 
-u8 get_psx_region_cd()
-{
-	u8 ret=0; // 0xXY X=1/2 PS1/PS2, Y=1/2/3 PAL/USA/JAP, 0=NA
 
-	int rr;
-	int dev_id;
-	u8* read_buffer = (unsigned char *) memalign(16, 4096);
-	u32 readlen=0;
-	u64 disc_size=0;
-	device_info_t disc_info;
-
-	rr=sys_storage_open(BD_DEVICE, &dev_id);
-	if(!rr) rr=sys_storage_get_device_info(BD_DEVICE, &disc_info);
-	disc_size = disc_info.sector_size * disc_info.total_sectors;
-
-	if(disc_size && !rr) // read sector 4 for License message
-	{
-		rr=sys_storage_read(dev_id, 4, 1, read_buffer, &readlen);
-		if(!rr && readlen==1)
-		{
-			if( read_buffer[0x20]==0x53 ) ret=0x13; //Sony
-			if( read_buffer[0x3c]==0x45 ) ret=0x11; //Europe
-			if( read_buffer[0x3c]==0x41 ) ret=0x12; //America
-		}
-	}
-	rr=sys_storage_close(dev_id);
-	free(read_buffer);
-
-	return ret;
-}
-
-u8 get_psx_region(char *_root)
-{
-	u8 region=0;
-    int dir_fd;
-    uint64_t nread;
-    CellFsDirent entry;
-
-    if (cellFsOpendir(_root, &dir_fd) == CELL_FS_SUCCEEDED)
-	{
-		while(1)
-		{
-
-			cellFsReaddir(dir_fd, &entry, &nread);
-			if(nread==0) break;
-			if(strlen(entry.d_name)==11)
-			{
-				if(entry.d_name[0]=='S' && entry.d_name[4]=='_' && entry.d_name[8]=='.')
-				{
-					if(entry.d_name[2]=='E') {region=1; break;}
-					if(entry.d_name[2]=='U') {region=2; break;}
-					if(entry.d_name[2]=='P') {region=3; break;}
-				}
-			}
-		}
-		cellFsClosedir(dir_fd);
-	}
-	return region;
-}
 
 static uint64_t syscall_837(const char *device, const char *format, const char *point, u32 a, u32 b, u32 c, void *buffer, u32 len)
 {
@@ -2394,7 +4475,7 @@ static uint64_t syscall_838(const char *device)
 	return_to_user_prog(uint64_t);
 }
 
-void mountpoints(u8 _mode)
+static void mountpoints(u8 _mode)
 {
 	if(_mode==MOUNT)
 	{
@@ -2410,7 +4491,7 @@ void mountpoints(u8 _mode)
 	}
 }
 
-void launch_ps1_emu(u8 _mode)
+static void launch_ps1_emu(u8 _mode)
 {
 	if(!patch_sys_storage()) return;
 
@@ -2558,7 +4639,7 @@ void launch_showtime()
 	_Exitspawn((const char*)sts, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_PRIMARY_STACK_SIZE_128K);
 }
 
-void launch_self(char *_self, char *_param)
+static void launch_self(char *_self, char *_param)
 {
 	if(!net_used_ignore()) return;
 	char* launchargv[2];
@@ -2572,9 +4653,10 @@ void launch_self(char *_self, char *_param)
 	exitspawn((const char*)self, (char* const*)launchargv, NULL, NULL, 0, 64, SYS_PROCESS_PRIMARY_STACK_SIZE_512K);
 }
 
-void launch_snes_emu(char *rom)
+static void launch_snes_emu(char *rom)
 {
-	if(!net_used_ignore()) return;
+	if(!net_used_ignore())
+		return;
 	if(!exist(snes_self))
 	{
 		dialog_ret=0;
@@ -4131,36 +6213,6 @@ quit_th:
 return ret;
 }
 
-void download_cover(char *title_id, char *name)
-{
-	if(strlen(title_id)!=9 || download_covers!=1 || net_avail<0) return; //strstr (title_id,"NO_ID")!=NULL || strstr (title_id,"AVCHD")!=NULL) return;
-
-	net_avail=cellNetCtlGetInfo(16, &net_info);
-	if(net_avail<0) return;
-
-
-	char covers_url[128];
-	char string1x[128];
-	if(strstr(name, ".jpg")!=NULL || strstr(name, ".JPG")!=NULL || strstr(name, ".jpeg")!=NULL || strstr(name, ".JPEG")!=NULL)
-		sprintf(string1x, "%s/%s.JPG", covers_dir, title_id);
-	else
-		sprintf(string1x, "%s/%s.PNG", covers_dir, title_id);
-
-	sprintf(covers_url, "%s/covers_jpg/%s.JPG", url_base, title_id);
-	u8 is_in_queue=0;
-	for(int n=0;n<downloads_max; n++)
-		if(!strcmp(downloads[downloads_max].url, covers_url)){is_in_queue=1; break;}
-
-	if(!is_in_queue)
-	{
-		if(downloads_max>=MAX_DOWN_LIST) downloads_max=0;
-		sprintf(downloads[downloads_max].url, "%s", covers_url);
-		sprintf(downloads[downloads_max].local, "%s", string1x);
-		downloads[downloads_max].status=1;
-		downloads_max++;
-		if(downloads_max>=MAX_DOWN_LIST) downloads_max=0;
-	}
-}
 
 
 u64 mount_dev_flash()
@@ -4364,48 +6416,7 @@ void sort_entries(t_menu_list *list, int *max)
 	}
 }
 
-void delete_xmb_member(xmbmem *_xmb, u16 *max, int n)
-{
-	if(n==((*max)-1)) {(*max)--; return;}
-		if((*max) >1)
-		{
-			for(int n2=n; (n2 < ((*max)-1)); n2++)
-				_xmb[n2]=_xmb[n2+1];
 
-			(*max) --;
-		}
-		else  {if((*max) == 1)(*max) --;}
-}
-
-void sort_xmb_col(xmbmem *_xmb, u16 max, const int first)
-{
-	if((max)<3) return;
-	int n,m,o1=0,o2=0;
-	int _first=first;
-	u16 fi= (max);
-	xmbmem swap;
-
-	for(n=first; n< (fi -1);n++)
-	{
-		if(_xmb[n].type!=0 && _xmb[n].type!=6 && _xmb[n].type!=7)
-		{
-			if(n>_first) _first=n;
-			break;
-		}
-	}
-
-	for(n=_first; n< (fi -1);n++)
-		for(m=n+1; m< fi ;m++)
-		{
-			if(_xmb[n].name[0]=='_') o1=1; else o1=0;
-			if(_xmb[m].name[0]=='_') o2=1; else o2=0;
-
-			if(strcasecmp(_xmb[n].name+o1, _xmb[m].name+o2)>0 || (!_xmb[m].type && _xmb[n].type))
-			{
-				swap=_xmb[n];_xmb[n]=_xmb[m];_xmb[m]=swap;
-			}
-		}
-}
 
 void sort_xmb_col_all(xmbmem *_xmb, u16 max, const int first)
 {
@@ -4750,41 +6761,6 @@ static int unload_modules()
 
 
 
-/****************************************************/
-/* PNG SECTION                                      */
-/****************************************************/
-
-
-typedef struct CtrlMallocArg
-{
-	u32 mallocCallCounts;
-
-} CtrlMallocArg;
-
-
-typedef struct CtrlFreeArg
-{
-	u32 freeCallCounts;
-
-} CtrlFreeArg;
-
-void *png_malloc(u32 size, void * a)
-{
-    CtrlMallocArg *arg;
-	arg = (CtrlMallocArg *) a;
-	arg->mallocCallCounts++;
-	return memalign(16,size+16);
-}
-
-
-static int png_free(void *ptr, void * a)
-{
-    CtrlFreeArg *arg;
-  	arg = (CtrlFreeArg *) a;
-  	arg->freeCallCounts++;
-	free(ptr);
-	return 0;
-}
 
 int map_rsx_memory(u8 *buffer, size_t buf_size)
 {
@@ -4795,9 +6771,6 @@ int map_rsx_memory(u8 *buffer, size_t buf_size)
 	return 0;
 }
 
-int png_w=0, png_h=0, png_w2, png_h2;
-int jpg_w=0, jpg_h=0;
-int png_w_th=0, png_h_th=0;
 
 void find_jfif(char *name, int64_t *fileOffset, uint32_t *fileSize)
 {
@@ -5010,163 +6983,6 @@ leave_jpg_th:
 	return ret;
 }
 
-int load_jpg_texture(u8 *data, char *name, uint16_t _DW)
-{
-	scale_icon_h=0;
-	while(is_decoding_jpg || is_decoding_png){ cellSysutilCheckCallback();}
-	is_decoding_jpg=1;
-	int ret, ok=-1;
-	png_w=0; png_h=0;
-
-	CellJpgDecMainHandle     mHandle;
-	CellJpgDecSubHandle      sHandle;
-
-	CellJpgDecInParam        inParam;
-	CellJpgDecOutParam       outParam;
-
-	CellJpgDecSrc            src;
-	CellJpgDecOpnInfo        opnInfo;
-	CellJpgDecInfo           info;
-
-	CellJpgDecDataOutInfo    dOutInfo;
-	CellJpgDecDataCtrlParam  dCtrlParam;
-
-	CellJpgDecThreadInParam  InParam;
-	CellJpgDecThreadOutParam OutParam;
-
-	CtrlMallocArg               MallocArg;
-	CtrlFreeArg                 FreeArg;
-
-	float                    downScale;
-	bool                     unsupportFlag;
-
-	MallocArg.mallocCallCounts  = 0;
-	FreeArg.freeCallCounts      = 0;
-
-	//	InParam.spuThreadEnable   = CELL_JPGDEC_SPU_THREAD_DISABLE;
-	InParam.spuThreadEnable   = CELL_JPGDEC_SPU_THREAD_ENABLE;
-	InParam.ppuThreadPriority = 1001;
-	InParam.spuThreadPriority = 250;
-	InParam.cbCtrlMallocFunc  = png_malloc;
-	InParam.cbCtrlMallocArg   = &MallocArg;
-	InParam.cbCtrlFreeFunc    = png_free;
-	InParam.cbCtrlFreeArg     = &FreeArg;
-
-	ret = cellJpgDecCreate(&mHandle, &InParam, &OutParam);
-
-	if(ret == CELL_OK){
-
-		src.srcSelect  = CELL_JPGDEC_FILE;
-		src.fileName   = name;
-		src.fileOffset = 0;
-		src.fileSize   = 0;
-		src.streamPtr  = NULL;
-		src.streamSize = 0;
-
-		src.spuThreadEnable = CELL_JPGDEC_SPU_THREAD_ENABLE;
-
-		unsupportFlag = false;
-		ret = cellJpgDecOpen(mHandle, &sHandle, &src, &opnInfo);
-		if(ret == CELL_OK){
-
-			ret = cellJpgDecReadHeader(mHandle, sHandle, &info);
-			if(info.jpegColorSpace == CELL_JPG_UNKNOWN){
-				unsupportFlag = true;
-			}
-
-			if(ret !=CELL_OK || info.imageHeight==0)
-			{
-				src.spuThreadEnable = CELL_JPGDEC_SPU_THREAD_DISABLE;
-				unsupportFlag = false;
-				ret = cellJpgDecClose(mHandle, sHandle);
-				ret = cellJpgDecOpen(mHandle, &sHandle, &src, &opnInfo);
-				ret = cellJpgDecReadHeader(mHandle, sHandle, &info);
-				if(info.jpegColorSpace == CELL_JPG_UNKNOWN){
-					unsupportFlag = true;
-				}
-			}
-
-
-		} //decoder open
-
-		if(ret == CELL_OK){
-			if(scale_icon_h)
-			{
-				//					if(info.imageHeight>info.imageWidth)
-				if( ((float)info.imageHeight / (float)XMB_THUMB_HEIGHT) > ((float)info.imageWidth / (float) XMB_THUMB_WIDTH))
-					downScale=(float)info.imageHeight / (float)(XMB_THUMB_HEIGHT);
-				else
-					downScale=(float)info.imageWidth / (float) (XMB_THUMB_WIDTH);
-			}
-			else
-			{
-
-				if(info.imageWidth>1920 || info.imageHeight>1080){
-					if( ((float)info.imageWidth / 1920) > ((float)info.imageHeight / 1080 ) ){
-						downScale = (float)info.imageWidth / 1920;
-					}else{
-						downScale = (float)info.imageHeight / 1080;
-					}
-				}
-				else
-					downScale=1.f;
-
-				if(strstr(name, "/HDAVCTN/BDMT_O1.jpg")!=NULL || strstr(name, "/BDMV/META/DL/HDAVCTN_O1.jpg")!=NULL) downScale = (float) (info.imageWidth / 320);
-
-			}
-
-			if( downScale <= 1.f ){
-				inParam.downScale = 1;
-			}else if( downScale <= 2.f ){
-				inParam.downScale = 2;
-			}else if( downScale <= 4.f ){
-				inParam.downScale = 4;
-			}else{
-				inParam.downScale = 8;
-			}
-
-			if(downScale>8.0f)
-			{
-				png_w=0;
-				png_h=0;
-				goto leave_jpg;
-
-			}
-
-
-			inParam.commandPtr       = NULL;
-			inParam.method           = CELL_JPGDEC_FAST;
-			inParam.outputMode       = CELL_JPGDEC_TOP_TO_BOTTOM;
-			inParam.outputColorSpace = CELL_JPG_RGBA;
-			inParam.outputColorAlpha = 0xfe;
-			ret = cellJpgDecSetParameter(mHandle, sHandle, &inParam, &outParam);
-		}
-
-		if(ret == CELL_OK){
-			if(scale_icon_h && inParam.downScale)
-				dCtrlParam.outputBytesPerLine = (int) ((info.imageWidth/inParam.downScale) * 4);
-			else
-				dCtrlParam.outputBytesPerLine = _DW * 4;
-
-			ret = cellJpgDecDecodeData(mHandle, sHandle, data, &dCtrlParam, &dOutInfo);
-
-			if((ret == CELL_OK) && (dOutInfo.status == CELL_JPGDEC_DEC_STATUS_FINISH))
-			{
-				png_w= outParam.outputWidth;
-				png_h= outParam.outputHeight;
-				ok=0;
-			}
-		}
-
-leave_jpg:
-		ret = cellJpgDecClose(mHandle, sHandle);
-		ret = cellJpgDecDestroy(mHandle);
-	} //decoder create
-
-	scale_icon_h=0;
-	is_decoding_jpg=0;
-	return ret;
-}
 
 int load_png_texture_th(u8 *data, char *name)//, uint16_t _DW)
 {
@@ -5965,118 +7781,7 @@ void put_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint
 
 }
 
-void put_texture_with_alpha( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t _width, uint32_t _height, int from_width, int x, int y, int border, uint32_t border_color)
-{
-	int row	 = from_width * 4;
-	int line = 1920 * 4;
-	uint32_t pos_to = ( y * line) + (x * 4), cline=0;
-	uint32_t pos_to_border = ( (y-border) * line) + ((x-border) * 4);
-	uint32_t pos_from = 0;
-	uint32_t lines=0;
-	uint32_t c_pixel_N_R, c_pixel_N_G, c_pixel_N_B;
-	uint32_t c_pixelR, c_pixelG, c_pixelB, c_pixel_N_A, c_pixel;
-	uint32_t width=_width;
-	uint32_t height=_height;
-	unsigned char* bt;
-	unsigned char* btF;
-	if( (x+width) > 1920) width=(1920-x);
-	if( (y+height) > 1080) height=(1080-y);
 
-	if(border)
-	{
-		for(lines=0; lines<(height+(border*2)); lines++)
-		{
-			for(cline=0; cline<((width+border*2)*4); cline+=4)
-			{
-				bt = (uint8_t*)(buffer_to) + pos_to_border + cline;
-				*(uint32_t*)bt = border_color;
-			}
-			pos_to_border+=line;
-		}
-	}
-
-	for(lines=0; lines<height; lines++)
-	{
-		for(cline=0; cline<((width)*4); cline+=4)
-		{
-			btF = (uint8_t*)(buffer_from) + pos_from + cline;
-			bt = (uint8_t*)(buffer_to) + pos_to + cline;
-
-			c_pixel = *(uint32_t*)btF;
-			c_pixel_N_A = (c_pixel    ) & 0xff;
-
-			if(c_pixel_N_A)
-			{
-
-				float d_alpha  = (c_pixel_N_A / 255.0f);
-				float d_alpha1 = 1.0f-d_alpha;
-				c_pixel_N_R = (int)(buffer_from[pos_from + cline + 0] * d_alpha);
-				c_pixel_N_G = (int)(buffer_from[pos_from + cline + 1] * d_alpha);
-				c_pixel_N_B = (int)(buffer_from[pos_from + cline + 2] * d_alpha);
-
-				c_pixelR = (int)(buffer_to[pos_to + cline + 0] * d_alpha1) + c_pixel_N_R;
-				c_pixelG = (int)(buffer_to[pos_to + cline + 1] * d_alpha1) + c_pixel_N_G;
-				c_pixelB = (int)(buffer_to[pos_to + cline + 2] * d_alpha1) + c_pixel_N_B;
-
-				//keep the higher alpha
-				*(uint32_t*)bt = ((buffer_to[pos_to + cline + 3]>(c_pixel_N_A) ? buffer_to[pos_to + cline + 3] : (c_pixel_N_A) )) | (c_pixelR<<24) | (c_pixelG<<16) | (c_pixelB<<8);
-			}
-		}
-
-		pos_from+=row;
-		pos_to+=line;
-	}
-
-}
-
-void put_texture_with_alpha_gen( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t _width, uint32_t _height, int from_width, u16 to_width, int x, int y)
-{
-	int row	 = from_width * 4;
-	int line = to_width * 4;
-	uint32_t pos_to = ( y * line) + (x * 4), cline=0;
-	uint32_t pos_from = 0;
-	uint32_t lines=0;
-	uint32_t c_pixel_N_R, c_pixel_N_G, c_pixel_N_B;
-	uint32_t c_pixelR, c_pixelG, c_pixelB, c_pixel_N_A, c_pixel;
-	uint32_t width=_width;
-	uint32_t height=_height;
-	unsigned char* bt;
-	unsigned char* btF;
-	if( (x+width) > to_width) width=(to_width-x);
-
-	for(lines=0; lines<height; lines++)
-	{
-		for(cline=0; cline<((width)*4); cline+=4)
-		{
-			btF = (uint8_t*)(buffer_from) + pos_from + cline;
-			bt = (uint8_t*)(buffer_to) + pos_to + cline;
-
-			c_pixel = *(uint32_t*)btF;
-			c_pixel_N_A = (c_pixel    ) & 0xff;
-
-			if(c_pixel_N_A)
-			{
-
-				float d_alpha  = (c_pixel_N_A / 255.0f);
-				float d_alpha1 = 1.0f-d_alpha;
-				c_pixel_N_R = (int)(buffer_from[pos_from + cline + 0] * d_alpha);
-				c_pixel_N_G = (int)(buffer_from[pos_from + cline + 1] * d_alpha);
-				c_pixel_N_B = (int)(buffer_from[pos_from + cline + 2] * d_alpha);
-
-				c_pixelR = (int)(buffer_to[pos_to + cline + 0] * d_alpha1) + c_pixel_N_R;
-				c_pixelG = (int)(buffer_to[pos_to + cline + 1] * d_alpha1) + c_pixel_N_G;
-				c_pixelB = (int)(buffer_to[pos_to + cline + 2] * d_alpha1) + c_pixel_N_B;
-
-				//keep the higher alpha
-				*(uint32_t*)bt = ((buffer_to[pos_to + cline + 3]>(c_pixel_N_A) ? buffer_to[pos_to + cline + 3] : (c_pixel_N_A) )) | (c_pixelR<<24) | (c_pixelG<<16) | (c_pixelB<<8);
-			}
-		}
-
-		pos_from+=row;
-		pos_to+=line;
-	}
-
-}
 
 void put_texture_VM_Galpha( uint8_t *buffer_to, uint32_t Twidth, uint32_t Theight, uint8_t *buffer_from, uint32_t _width, uint32_t _height, int from_width, int x, int y, int border, uint32_t border_color)
 {
@@ -6272,23 +7977,6 @@ void put_reflection( uint8_t *buffer_to, uint32_t Twidth, uint32_t Theight, uint
 
 }
 
-void gray_texture( uint8_t *buffer_to, uint32_t width, uint32_t height, int step)
-{
-	if(gray_poster==0) return;
-	uint32_t cline=0;
-	uint16_t c_pixel;
-	int line=0;
-	(void) step;
-	(void) line;
-
-	for(cline=0; cline<(width*height*4); cline+=4)
-	{
-		c_pixel = buffer_to[cline];
-		c_pixel+= buffer_to[cline + 1];
-		c_pixel+= buffer_to[cline + 2];
-		memset(buffer_to + cline, (uint8_t) (c_pixel/3), 3);
-	}
-}
 
 void mip_texture( uint8_t *buffer_to, uint8_t *buffer_from, uint32_t width, uint32_t height, int scaleF)
 {
@@ -6724,128 +8412,6 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 
 //FONTS
 
-void put_label(uint8_t *buffer, uint32_t width, uint32_t height, char *str1p, char *str2p, char *str3p, uint32_t color) //uint8_t *texture,
-{
-		if(game_details==3) return;
-		CellFontRenderer* renderer;
-		CellFontRenderSurface* surf;
-		CellFont Font[1];
-		CellFont* cf;
-		int fn;
-
-		surf     = &RenderWork.Surface;
-		cellFontRenderSurfaceInit( surf,
-		                           buffer, width*4, 4,
-		                           width, height );
-
-		cellFontRenderSurfaceSetScissor( surf, 0, 0, width, height );
-		renderer = &RenderWork.Renderer;
-		fn = FONT_SYSTEM_5;
-		if(user_font==1 || user_font>19) fn = FONT_SYSTEM_GOTHIC_JP;
-		else if (user_font==2) fn = FONT_SYSTEM_GOTHIC_LATIN;
-		else if (user_font==3) fn = FONT_SYSTEM_SANS_SERIF;
-		else if (user_font==4) fn = FONT_SYSTEM_SERIF;
-		else if (user_font>4 && user_font<10) fn=user_font+5;
-		else if (user_font>14 && user_font<20) fn=user_font;
-
-		int ret = Fonts_AttachFont( fonts, fn, &Font[0] );
-		if ( ret == CELL_OK ) cf = &Font[0];
-		else                  cf = (CellFont*)0;
-
-		if ( cf ) {
-			static float textScale = 1.00f;
-			static float weight = 1.04f;
-			static float slant = 0.00f;
-			float surfW = (float)width;
-			float surfH = (float)height;
-			float textX, textW = surfW;
-			float textY, textH = surfW;
-			float scale;
-			float step;
-			float lineH, baseY;
-
-
-			uint8_t* utf8Str0 = (uint8_t*) str1p;
-			uint8_t* utf8Str1 = (uint8_t*) str2p;
-			uint8_t* utf8Str2 = (uint8_t*) str3p;
-			float x, y, x2, x3;
-			float w1,w2,w3;
-			float w;
-			if(str1p[0]=='_') utf8Str0++;
-
-			step  =  0.f;
-			scale=28.f;
-
-			textX = 0.5f * ( surfW - surfW * textScale );
-			textY = 0.03f * ( surfH - surfH * textScale );
-			textW = surfW * textScale;
-			textH = surfH * textScale;
-
-			ret = Fonts_SetFontScale( cf, scale );
-			if ( ret == CELL_OK ) {
-				ret = Fonts_SetFontEffectWeight( cf, weight );
-			}
-			if ( ret == CELL_OK ) {
-				ret = Fonts_SetFontEffectSlant( cf, slant );
-			}
-
-				ret = Fonts_GetFontHorizontalLayout( cf, &lineH, &baseY );
-
-				if ( ret == CELL_OK ) {
-
-					w1 = Fonts_GetPropTextWidth( cf, utf8Str0, scale, scale, slant, step, NULL, NULL )*1.2f;
-					w2 = Fonts_GetPropTextWidth( cf, utf8Str1, scale, scale, slant, step, NULL, NULL )*0.8f;
-					w3 = Fonts_GetPropTextWidth( cf, utf8Str2, scale, scale, slant, step, NULL, NULL )*0.8f;
-					w = (( w1 > w2 )? w1:w2);
-
-					if ( w > textW ) {
-						float ratio;
-
-						scale = Fonts_GetPropTextWidthRescale( scale, w, textW, &ratio );
-						w1    *= ratio;
-						w2    *= ratio;
-						w3    *= ratio;
-						baseY *= ratio;
-						lineH *= ratio;
-						step  *= ratio;
-					}
-
-					Fonts_BindRenderer( cf, renderer );
-
-					x = 0.5f*(textW-w1);//+mouseXP; //textX-0.7f;//
-					x2 = 0.5f*(textW-w2);//+mouseXP; //textX-0.7f;//
-					x3 = 0.5f*(textW-w3);//+mouseXP; //textX-0.7f;//
-					y=legend_y;//+mouseYP;
-
-
-					if(game_details!=3)
-					{
-						if(game_details==0) y+=25;
-						if(game_details==1) y+=12;
-						Fonts_RenderPropText( cf, surf, x+1, y+1, utf8Str0, scale*1.2, scale, slant, step, 0xf0101010 );//f01010e0 //0xff404040
-						Fonts_RenderPropText( cf, surf, x, y, utf8Str0, scale*1.2f, scale, slant, step, color );//(color & 0x00ffffff)
-
-						if(game_details>0)
-						{
-							Fonts_RenderPropText( cf, surf, x3+1, y+42, utf8Str2, scale*0.8f, scale*0.57f, slant, step, 0xff101010);
-							Fonts_RenderPropText( cf, surf, x3, y+41, utf8Str2, scale*0.8f, scale*0.57f, slant, step, 0xffd0d0ff );
-						}
-
-						if(game_details>1)
-						{
-							Fonts_RenderPropText( cf, surf, x2+1, y+68, utf8Str1, scale*0.8f, scale*0.8f, slant, step, 0xff101010);
-							Fonts_RenderPropText( cf, surf, x2, y+67, utf8Str1, scale*0.8f, scale*0.8f, slant, step, 0xc000ffff );
-						}
-					}
-
-
-					Fonts_UnbindRenderer( cf );
-				}
-
-			Fonts_DetachFont( cf );
-		}
-
-}
 
 void print_label(float x, float y, float scale, uint32_t color, char *str1p, float weight, float slant, int ufont)
 {
@@ -8291,48 +9857,6 @@ int ps3_home_scan_ext_bare(char *path, t_dir_pane_bare *list, int *max, char *_e
 }
 
 
-int ps3_home_scan_bare(char *path, t_dir_pane_bare *list, int *max)
-{
-	if((*max)>=(MAX_PANE_SIZE_BARE-1)) {(*max)=(MAX_PANE_SIZE_BARE-1);return 0;}
-
-	DIR  *dir;
-
-   dir=opendir (path);
-   if(!dir) return -1;
-
-   while(1)
-	{
-		struct dirent *entry=readdir (dir);
-		if(!entry) break;
-
-		if(entry->d_name[0]=='.' && (entry->d_name[1]==0 || entry->d_name[1]=='_')) continue;
-		if(entry->d_name[0]=='.' && entry->d_name[1]=='.' && entry->d_name[2]==0) continue;
-		if(strstr(entry->d_name, ".MTH")!=NULL || strstr(entry->d_name, ".STH")!=NULL) continue;
-		if((strlen(path)+strlen(entry->d_name))>510) continue;
-
-		if((entry->d_type & DT_DIR))
-		{
-			char *d1f= (char *) malloc(512);
-			if(!d1f) {closedir (dir);return -1;}
-			snprintf(d1f, 511, "%s/%s", path, entry->d_name);
-			ps3_home_scan_bare(d1f, list, max);
-			free(d1f);
-		}
-		else
-		{
-
-			snprintf(list[*max ].name, sizeof(list[0].name)-1, "%s", entry->d_name);
-			snprintf(list[*max ].path, sizeof(list[0].path)-1, "%s", path);
-			(*max) ++;
-			if((*max)>=MAX_PANE_SIZE_BARE-1) {closedir(dir); (*max)=(MAX_PANE_SIZE_BARE-1); return 0;}
-		}
-
-	}
-
-	closedir (dir);
-
-	return 0;
-}
 
 int ps3_home_scan_bare2(char *path, t_dir_pane *list, int *max)
 {
@@ -13740,7 +15264,6 @@ cancel_exit:
 				}
 			}
 
-//			if ((new_pad & BUTTON_SQUARE) && (list[e].type==0) && (list[e].name[0]!=0x2e) && strlen(list[e].path)>12 && strstr(this_pane, "/ps3_home")==NULL && disable_options!=1 && disable_options!=3)
 			if (!strcmp(fm_func, "delete") && (list[e].type==0) && strstr(list[e].path, "net_host")==NULL)
 			{
 //fm delete folder
@@ -13794,8 +15317,6 @@ cancel_exit:
 					}
 				}
 			}
-
-//			if ( ((new_pad & BUTTON_CIRCLE) || (new_pad & BUTTON_R3)) && (list[e].type==0) && (list[e].name[0]!=0x2e) && ((strlen(other_pane)>5 && strcmp(this_pane, other_pane)!=0) || ((new_pad & BUTTON_R3) && strstr(list[e].name, "PS3_GAME")!=NULL) ) && (!(strstr(other_pane, "/net_host")!=NULL && strstr(this_pane, "/net_host")!=NULL))  && (strstr(other_pane, "/ps3_home")==NULL || strstr(other_pane, "/ps3_home/video")!=NULL || strstr(other_pane, "/ps3_home/music")!=NULL || strstr(other_pane, "/ps3_home/photo")!=NULL))
 
 			if (!strcmp(fm_func, "shortcut") && (list[e].type==1))
 			{
@@ -13854,7 +15375,6 @@ cancel_exit:
 				cellMsgDialogOpen2( type_dialog_yes_no, filename, dialog_fun1, (void*)0x0000aaaa, NULL );
 				wait_dialog();
 
-//				if(strstr(list[e].name, "PS3_GAME")!=NULL && strstr(list[e].path, "/dev_usb")!=NULL && dialog_ret==1 && use_symlinks==1)
 				if(!strcmp(fm_func, "bdmirror") && dialog_ret==1 && use_symlinks==1)
 				{
 					sprintf(fm_func, "%s", "none");
@@ -15523,20 +17043,9 @@ void clean_up()
 	sprintf(cleanup, "%s", "/dev_hdd0/game"); cellFsChmod(cleanup, CELL_FS_S_IFDIR | 0777);
 }
 
-void draw_xmb_bg()
-{
-	if(cFrame!=NULL && is_bg_video)//!canDraw &&
-	{
-		set_texture( cFrame, 1920, 1080);
-		display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
-		canDraw=true;
-	}
-	else
-	{
-		set_texture( text_bmp, 1920, 1080);
-		display_img(0, 0, 1920, 1080, xmbbg_user_w, xmbbg_user_h, 0.9f, 1920, 1080);
-	}
-}
+
+
+
 
 void slide_xmb0_left(int _xmb_icon)
 {
@@ -15584,6 +17093,22 @@ void slide_xmb0_right()
 
 		xmb0_slide=0;
 		xmb0_slide_step=0;
+}
+
+void draw_xmb_bare(u8 _xmb_icon, u8 _all_icons, bool recursive, int _sub_level)
+{
+
+	ClearSurface();
+	if(!use_drops && xmb_sparks!=0) draw_stars();
+	draw_xmb_bg();
+	if(use_drops && xmb_sparks!=0) draw_stars();
+	draw_xmb_clock(xmb_clock, (_all_icons!=2 ? _xmb_icon : -1));
+
+	if(_all_icons==1)
+		draw_xmb_icons(xmb, _xmb_icon, xmb_slide, xmb_slide_y, recursive, _sub_level, 0);
+	else if(_all_icons==2)
+		draw_xmb_icons(xmb, _xmb_icon, xmb_slide, xmb_slide_y, recursive, -1, 0);
+	flip();
 }
 
 void slide_xmb_left(int _xmb_icon)
@@ -15829,47 +17354,8 @@ int delete_game_cache()
 		return ret_f;
 }
 
-void update_fm_stripe()
-{
-	if(fm_sel==fm_sel_old) return;
-	fm_sel_old=fm_sel;
-	memcpy(text_FMS+737280, text_FMS, 368640);
 
-	max_ttf_label=0;
-	print_label_ex( 0.104f, 0.13f, 1.0f, (fm_sel&1  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_GAMES,  1.04f, 0.0f, mui_font, (fm_sel&1  ? 1.1f : 0.75f), 21.f, 1);
-	print_label_ex( 0.230f, 0.13f, 1.0f, (fm_sel&2  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_UPDATE, 1.04f, 0.0f, mui_font, (fm_sel&2  ? 1.1f : 0.75f), 21.f, 1);
-	print_label_ex( 0.359f, 0.13f, 1.0f, (fm_sel&4  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_ABOUT,  1.04f, 0.0f, mui_font, (fm_sel&4  ? 1.1f : 0.75f), 21.f, 1);
-	print_label_ex( 0.479f, 0.13f, 1.0f, (fm_sel&8  ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_HELP,   1.04f, 0.0f, mui_font, (fm_sel&8  ? 1.1f : 0.75f), 21.f, 1);
-	print_label_ex( 0.609f, 0.13f, 1.0f, (fm_sel&16 ? 0xffc0c0c0 : COL_FMFILE), (char*)STR_FM_THEMES, 1.04f, 0.0f, mui_font, (fm_sel&16 ? 1.1f : 0.75f), 21.f, 1);
-	flush_ttf(text_FMS+737280, 1920, 48);
-}
 
-void set_fm_stripes()
-{
-	fm_sel=0; fm_sel_old=15;
-	load_texture(text_FMS, playBG, 1920); memcpy(text_FMS+368640, text_FMS, 368640); memcpy(text_FMS+737280, text_FMS, 368640);
-	update_fm_stripe();
-}
-
-void draw_fileman()
-{
-		//if(c_opacity2<0x01) return;
-
-		set_texture( text_OFF_2, 320, 320);
-		display_img(1775-(int)(1920.0f*0.025f), 24+(int)(1080.0f*0.025f), 48, 48, 96, 96, -0.2f, 320, 320);
-
-		update_fm_stripe();
-
-		set_texture( text_FMS+737280, 1920, 48);
-		display_img(0, 47, 1920, 60, 1920, 48, 0.0f, 1920, 48);
-		set_texture( text_FMS, 1920, 48);
-		display_img(0, 952, 1920, 76, 1920, 48, 0.0f, 1920, 48);
-
-		set_texture( text_bmpUPSR+V_WIDTH*4*(int)((107.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT));//V_HEIGHT-);
-		display_img_nr(0, (int)((107.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT), V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT), 0.0f, V_WIDTH, V_HEIGHT-(int)((235.f/1080.f)*V_HEIGHT));
-		draw_xmb_info();
-
-}
 
 int context_menu(char *_capt, int _type, char *c_pane, char *o_pane)
 {
@@ -16165,84 +17651,6 @@ void apply_theme (const char *theme_file, const char *theme_path)
 		state_draw=1;
 }
 
-void draw_xmb_title(u8 *buffer, xmbmem *member, int cn, u32 col1, u32 col2, u8 _xmb_col)
-{
-		memset(buffer, 0, XMB_TEXT_WIDTH*XMB_TEXT_HEIGHT*4);
-		if((_xmb_col==6 || _xmb_col==7) && xmb_game_bg)
-		{
-			print_label_ex( 0.001f, 0.03f, 1.1f, 0x80101010, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);//3.0f // /0.75f
-		}
-
-		if(_xmb_col==2 && member[cn].option_size) //settings
-			print_label_ex( 0.99f, 0.2f, 0.48f, col1, member[cn].option[member[cn].option_selected].label, 1.04f, 0.0f, 0, 3.0f, 23.0f, 2);
-
-		if(!((_xmb_col>3 && _xmb_col<8 && (member[cn].type<6 || member[cn].type==32 || member[cn].type==33 || member[cn].type==34 || member[cn].type==35 || member[cn].type==36)) || (_xmb_col==8 && member[cn].type>7) || browse_column_active))
-			print_label_ex( 0.000f, 0.52f, 0.87f, col2, member[cn].subname, 1.02f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.5f, 0); //3.0f
-
-		if(browse_column_active)
-		{
-			print_label_ex( 0.000f, 0.25f, 1.10f, col1, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);
-		}
-		else
-			print_label_ex( 0.000f, 0.02f, 1.10f, col1, member[cn].name, 1.04f, 0.0f, 0, (1920.f/(float)XMB_TEXT_WIDTH), 15.0f, 0);//3.0f
-		flush_ttf(buffer, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT);
-
-		u8 *xmb_dev_icon1=xmb_icon_dev;
-		u8 *xmb_dev_icon2=xmb_icon_dev;
-		if( (_xmb_col>3 && _xmb_col<8 && (member[cn].type<6 || member[cn].type==32 || member[cn].type==33 || member[cn].type==34 || member[cn].type==35 || member[cn].type==36)) || (_xmb_col==8 && member[cn].type>7 && member[cn].type<15))
-		{
-			if(_xmb_col==6 || _xmb_col==7) xmb_dev_icon1=xmb_icon_dev;
-			else if(_xmb_col==5) xmb_dev_icon1=xmb_icon_dev+(1*8192);
-			else if(_xmb_col==4) xmb_dev_icon1=xmb_icon_dev+(2*8192);
-			else if(_xmb_col==8) xmb_dev_icon1=xmb_icon_dev+(16*8192);//retro
-
-			if(_xmb_col==8)
-			{
-				xmb_dev_icon2=xmb_icon_dev+((17+(member[cn].type-8))*8192);
-			}
-			else
-			{
-				if(strstr(member[cn].file_path, "/dev_hdd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(4*8192);
-				else if(strstr(member[cn].file_path, "/dev_usb")!=NULL) xmb_dev_icon2=xmb_icon_dev+(5*8192);
-				else if(strstr(member[cn].file_path, "/dev_bdvd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(6*8192);
-				else if(strstr(member[cn].file_path, "/pvd_usb")!=NULL) xmb_dev_icon2=xmb_icon_dev+(7*8192);
-				else if(strstr(member[cn].file_path, "/dev_sd")!=NULL) xmb_dev_icon2=xmb_icon_dev+(13*8192);
-				else if(strstr(member[cn].file_path, "/dev_ms")!=NULL) xmb_dev_icon2=xmb_icon_dev+(14*8192);
-				else if(strstr(member[cn].file_path, "/dev_cf")!=NULL) xmb_dev_icon2=xmb_icon_dev+(15*8192);
-				if(_xmb_col==6 && (member[cn].type==35  || member[cn].type==36))
-				{
-					if(member[cn].type==36) xmb_dev_icon2=xmb_icon_dev+( 6*8192); //psx //22
-					if(member[cn].type==35) xmb_dev_icon2=xmb_icon_dev+(23*8192); //ps2
-				}
-			}
-			int nip=0;
-			put_texture_with_alpha_gen( buffer, xmb_dev_icon1, 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;
-			if(_xmb_col==5)
-			{
-				if(!strcmp(member[cn].subname, "AVCHD"))
-					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(10*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
-				else if(!strcmp(member[cn].subname, "BDMV") || member[cn].type==34)
-					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(11*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
-				else if(!strcmp(member[cn].subname, "DVD") || member[cn].type==33)
-					{ put_texture_with_alpha_gen( buffer, xmb_icon_dev+(12*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64; }
-			}
-			if(member[cn].type!=0)
-				{put_texture_with_alpha_gen( buffer, xmb_dev_icon2, 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
-
-			if(_xmb_col==6 && member[cn].game_id>=0 && member[cn].game_id<max_menu_list)
-			{
-				if(member[cn].game_user_flags & IS_FAV)
-				{put_texture_with_alpha_gen( buffer, xmb_icon_dev+(8*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
-			}
-			if((_xmb_col==6 || _xmb_col==7) && member[cn].game_id>=0 && member[cn].game_id<max_menu_list)
-			{
-				if(member[cn].game_split==1)
-				{put_texture_with_alpha_gen( buffer, xmb_icon_dev+(9*8192), 64, 32, 64, XMB_TEXT_WIDTH, nip, XMB_TEXT_HEIGHT-32); nip+=64;}
-			}
-
-		}
-
-}
 
 void mod_xmb_member(xmbmem *_member, u16 size, char *_name, char *_subname)
 {
@@ -16252,39 +17660,6 @@ void mod_xmb_member(xmbmem *_member, u16 size, char *_name, char *_subname)
 	_member[size].subname[sizeof(_member[size].subname)]=0;
 }
 
-void add_xmb_member(xmbmem *_member, u16 *_size, char *_name, char *_subname,
-		/*type*/u8 _type, /*status*/u8 _status, /*game_id*/int _game_id, /*icon*/u8 *_data, u16 _iconw, u16 _iconh, /*f_path*/char *_file_path, /*i_path*/ char *_icon_path, int _u_flags, int _split)
-{
-	if( (*_size)>=(MAX_XMB_MEMBERS-1) || strlen(_file_path)>sizeof(_member[0].file_path) || strlen(_icon_path)>sizeof(_member[0].icon_path) ) return;
-
-	u16 size=(*_size);
-	_member[size].is_checked = true;
-	_member[size].type		=_type;
-	_member[size].status	=_status;
-	_member[size].game_id	=_game_id;
-
-	_member[size].game_user_flags =_u_flags;
-	_member[size].game_split	  =_split;
-
-	snprintf(_member[size].name, sizeof(_member[size].name), "%s", _name);
-	_member[size].name[sizeof(_member[size].name)-1]=0;
-	snprintf(_member[size].subname, sizeof(_member[size].subname), "%s", _subname);
-	_member[size].subname[sizeof(_member[size].subname)-1]=0;
-
-	_member[size].option_size=0;
-	_member[size].option_selected=0;
-
-	_member[size].data=-1;
-	_member[size].icon  =_data;
-	_member[size].icon_buf = -1;
-	_member[size].iconw =_iconw;
-	_member[size].iconh =_iconh;
-
-	snprintf(_member[size].file_path, sizeof(_member[size].file_path), "%s", _file_path);
-	snprintf(_member[size].icon_path, sizeof(_member[size].icon_path), "%s", _icon_path);
-
-	(*_size)++;
-}
 
 void add_xmb_suboption(xmbopt *_option, u8 *_size, u8 _type, char *_label, char *_value)
 {
@@ -16459,395 +17834,7 @@ void reset_xmb(u8 _flag)
 	xmb[9].data=text_FMS+(8*65536);
 }
 
-int find_free_buffer(const int _col)
-{
-	(void) _col;
-	int n;
-	for(n=0; n<MAX_XMB_THUMBS; n++)
-	{
-		if(xmb_icon_buf[n].used==-1) return n;
-	}
 
-	if( (xmb_icon==3 || xmb_icon==4) && !browse_column_active)
-	{
-		if(xmb_icon==3)
-		{
-			for(n=0; n<xmb[3].size; n++)
-			{
-				if(xmb[3].member[n].icon!=xmb_icon_photo  && xmb[3].member[n].icon!=xmb_icon_folder && xmb[3].member[n].icon!=xmb_icon_usb && (n<(xmb[3].first-3) || n>(xmb[3].first+7)))
-				{
-					xmb[3].member[n].icon_buf=-1;
-					xmb[3].member[n].status=0;
-					xmb[3].member[n].icon=xmb_icon_photo;
-				}
-			}
-		}
-		else
-		{
-			for(n=0; n<xmb[4].size; n++)
-			{
-				if(xmb[4].member[n].icon!=xmb_icon_note  && xmb[4].member[n].icon!=xmb_icon_folder && xmb[4].member[n].icon!=xmb_icon_usb && (n<(xmb[4].first-3) || n>(xmb[4].first+7)))
-				{
-					xmb[4].member[n].icon_buf=-1;
-					xmb[4].member[n].status=0;
-					xmb[4].member[n].icon=xmb_icon_note;
-				}
-			}
-		}
-
-	 	for(n=0; n<MAX_XMB_THUMBS; n++) xmb_icon_buf[n].used=-1;
-		return 0;
-	}
-
-	else
-		free_all_buffers();
-
-	return 0;
-}
-
-// Draws the cross MM bar (XMMB)
-void draw_xmb_icons(xmb_def *_xmb, const int _xmb_icon_, int _xmb_x_offset, int _xmb_y_offset, const bool _recursive, int sub_level, int _bounce)
-{
-	int _xmb_icon = _xmb_icon_;
-
-	int first_xmb=_xmb_icon-2;
-	int xpos, _xpos;
-	u8 subicons = (sub_level!=-1);
-	if(sub_level<0) sub_level=0;
-	_xpos=-90+_xmb_x_offset - (200*sub_level);
-	int ypos=0, tw=0, th=0;
-	u16 icon_x=0;
-	u16 icon_y=0;
-	int mo_of=0;
-	float mo_of2=0.0f;
-	bool one_done=false;
-	int bounce_step=0;
-
-	if(_xmb_icon>3 && _xmb_x_offset>0) {first_xmb--; _xpos-=200;}
-	for(int n=first_xmb; n<MAX_XMB_ICONS; n++)
-	{
-		_xpos+=200;
-		xpos = _xpos;
-
-		_xmb_icon = _xmb_icon_;
-		if(_xmb_x_offset>=100 && _xmb_icon>1 && !subicons) {_xmb_icon--; }
-		if(_xmb_x_offset<=-100 && _xmb_icon<MAX_XMB_ICONS-1 && !subicons) {_xmb_icon++;}
-
-		if(n<1) continue;
-		if(sub_level && n!=xmb_icon) continue;
-
-		set_texture(_xmb[n].data, 128, 128); //icon
-		mo_of=abs((int)(_xmb_x_offset*0.18f));
-		if(_xmb[_xmb_icon].first>=_xmb[_xmb_icon].size) _xmb[_xmb_icon].first=0;
-		if(n==_xmb_icon_)
-		{
-			display_img(xpos-(36-mo_of)/2, 230-(36-mo_of) - _bounce, 164-mo_of, 164-mo_of, 128, 128, 0.8f, 128, 128);
-			set_texture(xmb_col, 300, 30); //column name
-			display_img(xpos-86, 340 - _bounce, 300, 30, 300, 30, 0.7f, 300, 30);
-			int orphans=0;
-
-			if(_xmb[_xmb_icon].size>0 && subicons && !(key_repeat && ( (old_pad & BUTTON_LEFT) || (old_pad & BUTTON_RIGHT)) && (xmb_icon!=1 && xmb_icon!=MAX_XMB_ICONS-1)) && (abs(_xmb_x_offset)<100 || _xmb_icon != _xmb_icon_))
-			{
-				xpos = _xpos;
-				if(_xmb_x_offset>=100 && !subicons) xpos-=200;
-				if(_xmb_x_offset<=-100 && !subicons) xpos+=200;
-
-				int cn;
-				int cn3=1;
-				int first_xmb_mem = _xmb[_xmb_icon].first;
-				int cnmax=3;
-				if(_xmb[_xmb_icon].first>2 && _xmb_y_offset>0) {first_xmb_mem--; cn3--;}
-
-				for(int m=0;m<4;m++) // make it pleasureable to watch while loading column
-				{
-					if(m==1)
-					{
-						cn3=0;
-						first_xmb_mem = _xmb[_xmb_icon].first-1;
-						cnmax=1;
-					}
-
-					if(m==2)
-					{
-						cn3=-1;
-						first_xmb_mem = _xmb[_xmb_icon].first-2;
-						cnmax=0;
-					}
-
-					if(m==3)
-					{
-						cn3=3;
-						first_xmb_mem = _xmb[_xmb_icon].first+2;
-						cnmax=8;
-					}
-
-					if(_xmb[_xmb_icon].first>2 && _xmb_y_offset>0) {first_xmb_mem--; cn3--;}
-
-					for(cn=first_xmb_mem; (cn<_xmb[_xmb_icon].size && cn3<cnmax); cn++)
-					{
-
-						cn3++;
-						if(cn<0) continue;
-						if(sub_level && cn3!=2) continue;
-
-						if(!_xmb[_xmb_icon].member[cn].is_checked && !key_repeat)
-						{	// check for missing/orphan entries in photo/music/video/retro columns
-							if( ( (_xmb_icon>2 && _xmb_icon<6) || _xmb_icon==8)
-								&& (_xmb[_xmb_icon].member[cn].type>7 || _xmb[_xmb_icon].member[cn].type==0 || _xmb[_xmb_icon].member[cn].type==0 || (_xmb[_xmb_icon].member[cn].type>1 && _xmb[_xmb_icon].member[cn].type<6) )
-								&& (!exist(_xmb[_xmb_icon].member[cn].file_path))
-							)
-
-							{
-								delete_xmb_member(_xmb[_xmb_icon].member, &_xmb[_xmb_icon].size, cn);
-								if(cn>=_xmb[_xmb_icon].size) break;
-								if(!orphans) orphans=cn;
-							}
-							else
-								_xmb[_xmb_icon].member[cn].is_checked=true;
-						}
-
-						tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
-						if(tw>320 || th>176)
-						{
-							if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
-							else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
-							if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
-							if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
-						}
-
-						if(cn3!=2) {tw/=2; th/=2;}
-						else
-						{
-							tw=(int) ( (float)tw*(  (1.f+(float)_bounce/90.f) ) );
-							th=(int) ( (float)th*(  (1.f+(float)_bounce/90.f) ) );
-						}
-
-						mo_of2=2.f-(abs(_xmb_y_offset)/90.0f);
-
-						if( (_xmb_y_offset!=0) )
-						{
-							if( (_xmb_y_offset>0 && cn3==1) || (_xmb_y_offset<0 && cn3==3) )
-							{
-								tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
-								if(tw>320 || th>176)
-								{
-									if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
-									else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
-									if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
-									if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
-								}
-								tw=(int)(tw/mo_of2); th=(int)(th/mo_of2);
-							}
-							else if( (_xmb_y_offset!=0 && cn3==2))
-							{
-								tw=_xmb[_xmb_icon].member[cn].iconw; th=_xmb[_xmb_icon].member[cn].iconh;
-								if(tw>320 || th>176)
-								{
-									if(tw>th) {th= (int)((float)th/((float)tw/320.f)); tw=320;}
-									else {tw= (int)((float)tw/((float)th/176.f)); th=176;}
-									if(tw>320) {th= (int)((float)th/((float)tw/320.f));	tw=320;}
-									if(th>176) {tw= (int)((float)tw/((float)th/176.f));	th=176;}
-								}
-								tw=(int)(tw/(3.f-mo_of2)); th=(int)(th/(3.f-mo_of2));
-							}
-						}
-
-						if(cn3<1) ypos=cn3*90+_xmb_y_offset - _bounce;
-						else if(cn3==1) ypos=cn3*90 - _bounce + ( (_xmb_y_offset>0) ? (int)(_xmb_y_offset*3.566f) : (_xmb_y_offset) );
-						else if(cn3==2) {ypos = 411 - _bounce + ( (_xmb_y_offset>0) ? (int)(_xmb_y_offset*2.377f) : (int)(_xmb_y_offset*3.566f) );}
-						else if(cn3==3) ypos=(cn3-3)*90 + 625 + _bounce + ( (_xmb_y_offset>0) ? _xmb_y_offset : (int)(_xmb_y_offset*2.377f) );
-						else if(cn3 >3) ypos=(cn3-3)*90 + 625 + _bounce + _xmb_y_offset;
-
-						if(sub_level>0)
-						{
-							icon_x=xpos+80+tw/2;
-							icon_y=ypos+th/2-15;
-							set_texture(xmb_icon_arrow+((int)(angle*0.0388f))*3600, 30, 30); //pulsing back arrow
-							display_img(icon_x, icon_y, 30, 30, 30, 30, 0.4f, 30, 30);
-						}
-
-						if(browse_column_active && sub_level>0) goto skip_xmb_texts;
-
-						if(_xmb[_xmb_icon].member[cn].data==-1 && _xmb_x_offset==0 && !one_done)
-						{
-							one_done=true;
-							if(xmb_txt_buf_max>=MAX_XMB_TEXTS) {redraw_column_texts(_xmb_icon); xmb_txt_buf_max=0;}
-							_xmb[_xmb_icon].member[cn].data=xmb_txt_buf_max;
-							draw_xmb_title(xmb_txt_buf[xmb_txt_buf_max].data, _xmb[_xmb_icon].member, cn, COL_XMB_TITLE, COL_XMB_SUBTITLE, _xmb_icon);
-							xmb_txt_buf_max++;
-						}
-
-						if(_xmb[_xmb_icon].member[cn].data!=-1 && ((ss_timer<dim_setting && dim_setting) || _xmb[_xmb_icon].first==cn || dim_setting==0) && abs(_xmb_x_offset)<100)
-						{
-							u8 xo1=(_xmb_y_offset>0 ? 1 : 0);
-							u8 xo2=1-xo1;
-							if( ((_xmb_icon==6 || _xmb_icon==7) && ((cn>=_xmb[_xmb_icon].first-xo1 && cn<=_xmb[_xmb_icon].first+xo2 && _xmb_y_offset!=0) || cn==_xmb[_xmb_icon].first) )
-								|| (_xmb_icon!=6 && _xmb_icon!=7))
-							{
-								a_dynamic=(int)angle_dynamic(160, 255);
-								if(cn3==2 && _xmb_x_offset==0 && _xmb_y_offset==0 && _xmb[_xmb_icon].member[cn].data!=-1)
-								{
-									if(abs(a_dynamic-a_dynamic2)>5)
-									{
-										a_dynamic2=a_dynamic;
-										draw_xmb_title(text_legend, _xmb[_xmb_icon].member, cn, ((COL_XMB_TITLE & 0x00ffffff) | (a_dynamic<<24)), COL_XMB_SUBTITLE, _xmb_icon);
-									}
-									set_texture(text_legend, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //text
-
-								}
-								else
-									set_texture(xmb_txt_buf[_xmb[_xmb_icon].member[cn].data].data, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //text
-
-								if(bounce) bounce_step=bounce*5/3+10; else bounce_step=0;
-
-								if(_xmb_icon!=6 && _xmb_icon!=7)
-									display_img(xpos+((_xmb_icon==3 || _xmb_icon==5 || _xmb_icon==8)?(230+bounce_step):(128+tw/2)), ypos+th/2-XMB_TEXT_HEIGHT/2, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, 0.5f, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //(int)(XMB_TEXT_WIDTH*(1.f-abs((float)_xmb_x_offset)/200.f))
-								else
-									display_img(xpos+128+tw/2, ypos+th/2-XMB_TEXT_HEIGHT/2, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT, 0.5f, XMB_TEXT_WIDTH, XMB_TEXT_HEIGHT); //(int)(XMB_TEXT_WIDTH*(1.f-abs((float)_xmb_x_offset)/200.f))
-
-							}
-						}
-
-skip_xmb_texts:
-						if((_xmb[_xmb_icon].member[cn].status==1 || _xmb[_xmb_icon].member[cn].status==0) && !_recursive && !key_repeat && !(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading))
-						{
-							if(_xmb[_xmb_icon].member[cn].status==0)
-							{
-								_xmb[_xmb_icon].member[cn].status=1;
-								xmb_icon_buf_max=find_free_buffer(_xmb_icon);
-								xmb_icon_buf[xmb_icon_buf_max].used=cn;
-								xmb_icon_buf[xmb_icon_buf_max].column=_xmb_icon;
-
-								_xmb[_xmb_icon].member[cn].icon = xmb_icon_buf[xmb_icon_buf_max].data;
-								_xmb[_xmb_icon].member[cn].icon_buf=xmb_icon_buf_max;
-							}
-
-							if(_xmb_icon==5 || _xmb_icon==3 || _xmb_icon==8)
-							{
-								if(_xmb_icon!=3 && (strstr(_xmb[_xmb_icon].member[cn].icon_path,".png")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".PNG")!=NULL))
-									load_png_threaded( _xmb_icon, cn);
-								else
-									load_jpg_threaded( _xmb_icon, cn);
-							}
-							else
-							{
-								if(strstr(_xmb[_xmb_icon].member[cn].icon_path,".JPG")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".mp3")!=NULL || strstr(_xmb[_xmb_icon].member[cn].icon_path,".MP3")!=NULL)
-									load_jpg_threaded( _xmb_icon, cn);
-								else
-									load_png_threaded( _xmb_icon, cn);
-							}
-						}
-						if(_xmb[_xmb_icon].member[cn].status==1 || (_xmb[_xmb_icon].member[cn].status==0 && (_recursive || key_repeat)) || (_xmb[_xmb_icon].member[cn].status!=2 && (is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)))
-						{
-							tw=128; th=128;
-							if(cn3!=2) {tw/=2; th/=2;}
-							icon_x=xpos+64-tw/2;
-							icon_y=ypos;
-
-							set_texture(_xmb[0].data, 128, 128); //icon
-							display_img_angle(icon_x, icon_y, tw, th, 128, 128, 0.5f, 128, 128, angle);
-
-						}
-
-						if(_xmb[_xmb_icon].member[cn].status==2)
-						{
-							icon_x=xpos+64-tw/2;
-							icon_y=ypos;
-
-							if(_xmb[_xmb_icon].member[cn].icon==xmb_icon_blend)
-							{
-								change_opacity(xmb_icon_blend, -95, KB(64));
-								xmb_icon_blend_val+=1;
-								if(xmb_icon_blend_val>58)
-								{
-									xmb_icon_blend_val=0;
-									xmb_icon_blend_mem++;
-									if(xmb_icon_blend_mem>2) xmb_icon_blend_mem=0;
-									if(xmb_icon_blend_mem==0) memcpy(xmb_icon_blend, xmb_icon_psx, 65536);
-									else if(xmb_icon_blend_mem==1) memcpy(xmb_icon_blend, xmb_icon_dvd, 65536);
-									else if(xmb_icon_blend_mem==2) memcpy(xmb_icon_blend, xmb_icon_blu, 65536);
-								}
-							}
-							set_texture(_xmb[_xmb_icon].member[cn].icon, _xmb[_xmb_icon].member[cn].iconw, _xmb[_xmb_icon].member[cn].iconh);
-
-							if( ((is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)
-								&& ( (_xmb_icon==1 && cn==2) || (_xmb_icon==6 && cn==0) || (_xmb_icon==8 && cn==0)
-								))
-								)
-							display_img_angle(icon_x, icon_y,
-								tw,
-								th,
-								tw,
-								th,
-								0.5f,
-								tw,
-								th, angle);
-
-							else
-							{
-								display_img(icon_x, icon_y,	tw,	th,	tw,	th,	0.5f, tw,	th);
-								if( (_xmb_icon==4 && current_mp3 && current_mp3<MAX_MP3 && !is_theme_playing && (!strcmp(mp3_playlist[current_mp3].path, _xmb[_xmb_icon].member[cn].file_path) ||
-									(!_xmb[_xmb_icon].member[cn].type && strstr(mp3_playlist[current_mp3].path, _xmb[_xmb_icon].member[cn].file_path)!=NULL)
-									) ) )
-								{
-									if(update_ms || (!update_ms && (time(NULL)&1)))
-									{
-										set_texture(_xmb[4].data, 128, 128); //icon
-										display_img(icon_x-48, icon_y-16, 32, 32, 128, 128, 0.45f, 128, 128);
-									}
-									set_texture(_xmb[0].data, 128, 128); //icon
-									display_img_angle(icon_x-64, icon_y-32, 64, 64, 128, 128, 0.4f, 128, 128, angle);
-								}
-							}
-
-						}
-
-						if(browse_column_active && sub_level>0)
-							draw_browse_column( xmb, xmb_icon, xmb0_slide, xmb0_slide_y, 0, 0);
-					}
-				}
-			}
-
-			if(orphans && orphans<_xmb[_xmb_icon].size) sort_xmb_col(_xmb[_xmb_icon].member, _xmb[_xmb_icon].size, orphans);
-
-		}
-		else
-		{
-			if(n==xmb_icon-1 && _xmb_x_offset>0) display_img(xpos-(mo_of)/2, 230-(mo_of) - _bounce, 128+mo_of, 128+mo_of, 128, 128, 0.0f, 128, 128);
-			else if(n==xmb_icon+1 && _xmb_x_offset<0) display_img(xpos-(mo_of)/2, 230-(mo_of) - _bounce, 128+mo_of, 128+mo_of, 128, 128, 0.0f, 128, 128);
-			else display_img(xpos, 230 - _bounce, 128, 128, 128, 128, 0.0f, 128, 128);
-		}
-
-	}
-
-	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading || is_any_xmb_column || is_browse_loading)
-	{
-		if(is_any_xmb_column)
-			set_texture(xmb_icon_help, 128, 128);
-		else
-			set_texture(_xmb[0].data, 128, 128);
-		display_img_angle(1770, 74, 64, 64, 128, 128, 0.6f, 128, 128, angle);
-
-		if(time(NULL)&1)
-		{
-			if(is_any_xmb_column) set_texture(_xmb[is_any_xmb_column].data, 128, 128);
-			else if(is_browse_loading) set_texture(xmb_icon_usb, 128, 128);
-			else if(is_game_loading) set_texture(_xmb[6].data, 128, 128);
-			else if(is_video_loading) set_texture(_xmb[5].data, 128, 128);
-			else if(is_music_loading) set_texture(_xmb[4].data, 128, 128);
-			else if(is_photo_loading) set_texture(_xmb[3].data, 128, 128);
-			else if(is_retro_loading) set_texture(_xmb[8].data, 128, 128);
-
-			display_img(1834, 74, 64, 64, 128, 128, 0.6f, 128, 128);
-		}
-	}
-	else
-		if((ftp_clients && time(NULL)&2) || (http_active && time(NULL)&1) )
-		{
-			set_texture((http_active?xmb[9].data:xmb_icon_ftp), 128, 128);
-			display_img(1770, 74, 64, 64, 128, 128, 0.0f, 128, 128);
-		}
-}
 
 void load_legend(u8* buffer, char* path)
 {
@@ -16889,55 +17876,7 @@ void load_legend(u8* buffer, char* path)
 	}
 }
 
-static void load_coverflow_legend()
-{
-	if(cover_mode!=4 || !xmb[6].init || coverflow_legend_loading) return;
-	coverflow_legend_loading=1;
-	if((xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].game_id!=-1) game_sel=xmb[xmb_icon].member[xmb[xmb_icon].first].game_id; // || xmb_icon==8
-	int grey=(menu_list[game_sel].title[0]=='_' || menu_list[game_sel].split);
-	u32 color= (menu_list[game_sel].flags && game_sel==0)? COL_PS3DISC : ((grey==0) ?  COL_PS3 : COL_SPLIT);
-	if(strstr(menu_list[game_sel].content,"AVCHD")!=NULL) color=COL_AVCHD;
-	if(strstr(menu_list[game_sel].content,"BDMV")!=NULL) color=COL_BDMV;
-	if(strstr(menu_list[game_sel].content,"PS2")!=NULL) color=COL_PS2;
-	if(strstr(menu_list[game_sel].content,"DVD")!=NULL) color=COL_DVD;
-	int tmp_legend_y=legend_y;
-	legend_y=0;
-	memset(text_bmp, 0, 737280);
-	if(xmb[6].first)
-	{
-		if(!key_repeat)
-		{
-			char str[256];
-			sprintf(str, (const char*)(STR_POP_1OF1)+4, xmb[6].first, xmb[6].size-1); //"%i of %i"
-			if(dir_mode==1)
-				put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)str, (char*)menu_list[game_sel].path, color);
-			else
-				put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)str, (char*)menu_list[game_sel].title_id, color);
-		}
-		else
-			put_label(text_bmp, 1920, 1080, (char*)menu_list[game_sel].title, (char*)" ", (char*)" ", color);
-	}
-	else
-		put_label(text_bmp, 1920, 1080, (char*)STR_XC1_REFRESH, (char*)" ", (char*)" ", COL_PS3);
 
-	legend_y=tmp_legend_y;
-	xmb_bg_show=0;
-	coverflow_legend_loading=0;
-}
-
-void draw_xmb_bare(u8 _xmb_icon, u8 _all_icons, bool recursive, int _sub_level)
-{
-
-	ClearSurface();
-	if(!use_drops && xmb_sparks!=0) draw_stars();
-	draw_xmb_bg();
-	if(use_drops && xmb_sparks!=0) draw_stars();
-	draw_xmb_clock(xmb_clock, (_all_icons!=2 ? _xmb_icon : -1));
-
-	if(_all_icons==1) draw_xmb_icons(xmb, _xmb_icon, xmb_slide, xmb_slide_y, recursive, _sub_level, 0);
-	else if(_all_icons==2) draw_xmb_icons(xmb, _xmb_icon, xmb_slide, xmb_slide_y, recursive, -1, 0);
-	flip();
-}
 
 
 int open_theme_menu(char *_caption, int _width, theme_def *list, int _max, int _x, int _y, int _max_entries, int _centered)
@@ -18390,72 +19329,10 @@ thumb_cont_fba:
 	sys_ppu_thread_exit(0);
 }
 
-void add_browse_column()
-{
-	if(is_browse_loading || xmb[0].init)
-		return;
-	if(is_browse_loading || is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading) return;
-	is_browse_loading=1;
-	xmb[0].init=1;
-	sys_ppu_thread_create( &addbro_thr_id, add_browse_column_thread_entry,
-			0,
-			misc_thr_prio-5, app_stack_size,
-			0, "multiMAN_add_browse" );
-}
 
-void add_photo_column()
-{
-	if(is_photo_loading || xmb[3].init) return;
-	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading) return;
-	is_photo_loading=1;
-	xmb[3].init=1;
-	sys_ppu_thread_create( &addpic_thr_id, add_photo_column_thread_entry,
-			0,
-			misc_thr_prio-5, app_stack_size,
-			0, "multiMAN_add_photo" );//SYS_PPU_THREAD_CREATE_JOINABLE
-}
 
-void add_music_column()
-{
-	if(is_music_loading || xmb[4].init) return;
-	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading) return;
-	is_music_loading=1;
-	xmb[4].init=1;
-	sys_ppu_thread_create( &addmus_thr_id, add_music_column_thread_entry,
-						   0,
-						   misc_thr_prio-5, app_stack_size,
-						   0, "multiMAN_add_music" );//SYS_PPU_THREAD_CREATE_JOINABLE
-}
 
-void add_video_column()
-{
-	if(is_video_loading || xmb[5].init || !xmb[6].init || is_game_loading) return;
-	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading) return;
-	is_video_loading=1;
-	xmb[5].init=1;
-	sys_ppu_thread_create( &addvid_thr_id, add_video_column_thread_entry,
-						   0,
-						   misc_thr_prio-5, app_stack_size,
-						   0, "multiMAN_add_video" );//SYS_PPU_THREAD_CREATE_JOINABLE
-}
 
-void add_emulator_column()
-{
-	mod_xmb_member(xmb[8].member, 0, (char*)STR_XC1_REFRESH, (char*)STR_XC1_REFRESH3);
-	redraw_column_texts(8);
-	if(is_retro_loading || xmb[8].init) return;
-	if(is_video_loading || is_music_loading || is_photo_loading || is_retro_loading || is_game_loading) return;
-	is_retro_loading=1;
-
-	if(is_retro_loading)
-	{
-		xmb[8].init=1;
-		sys_ppu_thread_create( &addret_thr_id, add_retro_column_thread_entry,
-							   0,
-							   misc_thr_prio-5, app_stack_size,
-							   0, "multiMAN_add_retro" );
-	}
-}
 
 
 void save_options()
@@ -19027,414 +19904,8 @@ void add_home_column()
 
 }
 
-void is_psx_ps2()
-{
-	if(exist((char*)"/dev_bdvd/PSX.EXE")) {disc_in_tray=PSX_DISC; return;}
-	t_dir_pane_bare *pane =  (t_dir_pane_bare *) memalign(16, sizeof(t_dir_pane_bare)*MAX_PANE_SIZE_BARE);
-	if(pane!=NULL)
-	{
-		int max_dir=0;
-		ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".EXE");
-		ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".exe");
-		if(!max_dir)
-		{
-			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".ELF");
-			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".elf");
-			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".IRX");
-			ps3_home_scan_ext_bare((char*)"/dev_bdvd", pane, &max_dir, (char*)".irx");
-			if(max_dir) disc_in_tray=PS2_DISC; else disc_in_tray=PSX_DISC;
-		}
-		else disc_in_tray=PSX_DISC;
-		free(pane);
-	}
-}
 
 
-void add_game_column(t_menu_list *list, int max, int sel, bool force_covers)
-{
-		int toff=0;
-		char icon_path[512], linkfile[512];
-		u8	g_status;
-		char t_ip[512];
-		u8 *g_icon=xmb[0].data;
-		u8 ext_devs=0;
-
-		if(cover_mode == MODE_XMMB)
-		{
-
-		if(!xmb[5].init || !xmb[5].size)
-		{
-			xmb[5].first=0;
-			xmb[5].size=0;
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_LINK, (char*)STR_XC5_LINK1,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_XC5_ST, (char*)STR_XC5_ST1,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_showtime, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-
-			if(ss_patched && exist((char*)"/dev_bdvd"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"BD/DVD", (char*)STR_SIDE_BROW,
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			if(exist((char*)"/dev_sd"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"SD/SDHC", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_sd", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			if(exist((char*)"/dev_cf"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"CF", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_cf", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			if(exist((char*)"/dev_ms"))
-			{
-				ext_devs++;
-				add_xmb_member(xmb[5].member, &xmb[5].size, (char*)"MS/MSPRO", (char*)"ROOT",
-					/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_ms", /*i_path*/(char*)"/", 0, 0);
-			}
-
-			ext_devs++;
-			add_xmb_member(xmb[5].member, &xmb[5].size, (char*)STR_BR_HDD, (char*)STR_SIDE_BROW,
-				/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)"/dev_hdd0", /*i_path*/(char*)"/", 0, 0);
-
-			for(int ret_f=0; ret_f<99; ret_f++)
-			{
-				sprintf(icon_path, "/dev_usb%03i", ret_f);
-				if(exist(icon_path))
-				{
-					ext_devs++;
-					sprintf(t_ip, (char*) STR_BR_USB, ret_f);
-					add_xmb_member(xmb[5].member, &xmb[5].size, t_ip, (char*)STR_SIDE_BROW,
-						/*type*/0, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_usb, 128, 128, /*f_path*/(char*)icon_path, /*i_path*/(char*)"/", 0, 0);
-				}
-			}
-
-		}
-
-		if(xmb[5].size>(3+ext_devs))
-		{
-			for(int m=2; m<(xmb[5].size); m++)
-			{
-				if(xmb[5].member[m].type==0 && xmb[5].init) ext_devs++;
-				if(xmb[5].member[m].type==2)
-				{
-					delete_xmb_member(xmb[5].member, &xmb[5].size, m);
-					if(m>=xmb[5].size) break;
-					m--;
-				}
-			}
-			sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
-			//delete_xmb_dubs(xmb[5].member, &xmb[5].size);
-		}
-
-		}//xmmb
-
-		ext_devs=0;
-		u16 g_iconw=320;
-		u16 g_iconh=176;
-
-		if(!xmb[6].init)
-		{
-			xmb[6].first=0;
-			xmb[6].size=0;
-			add_xmb_member(xmb[6].member, &xmb[6].size, (char*)STR_XC1_REFRESH, (char*)STR_XC1_REFRESH2,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb[0].data, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-
-			xmb[7].first=0;
-			xmb[7].size=0;
-			xmb[7].init=0;
-			//if(ss_patched)
-			{
-				t_dir_pane_bare *pane =  (t_dir_pane_bare *) memalign(16, sizeof(t_dir_pane_bare)*MAX_PANE_SIZE_BARE);
-				if(pane!=NULL)
-				{
-					int max_dir=0;
-					ext_devs=0;
-					if( (exist((char*)"/dev_bdvd/SYSTEM.CNF") || exist((char*)"/dev_bdvd/system.cnf") || disc_in_tray==PSX_DISC || disc_in_tray==PS2_DISC))// && ss_patched
-					{
-						if(disc_in_tray==PS2_DISC) is_psx_ps2(); // || disc_in_tray==-1
-
-						if(disc_in_tray==PSX_DISC)
-						{
-							ext_devs++;
-							char psx_title[64];
-							sprintf (psx_title, "PLAYSTATION\xC2\xAE Disc");
-							u8 region = get_psx_region((char*)"/dev_bdvd");
-							if(!region) region = get_psx_region((char*)"/dev_ps2disc");
-							if(!region) region = get_psx_region((char*)"/dev_ps2disc1");
-							if(!region) region = (get_psx_region_cd() & 3);
-							if(region==1) strcat(psx_title, (char*)" [PAL]");
-							else if(region==2) strcat(psx_title, (char*)" [NTSC]");
-							else if(region==3) strcat(psx_title, (char*)" [NTSC/JAP]");
-
-							add_xmb_member(xmb[6].member, &xmb[6].size, (char*)psx_title, (char*)"PSX",
-							/*type*/36, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_psx, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
-							disc_in_tray=PSX_DISC;
-						}
-						else
-						{
-							ext_devs++;
-							add_xmb_member(xmb[6].member, &xmb[6].size, (char*)"PLAYSTATION\xC2\xAE\x32 Disc", (char*)"PS2",
-							/*type*/35, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_ps2, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
-							disc_in_tray=PS2_DISC;
-						}
-					}
-					max_dir=0;
-					if( (disc_in_tray==UNK_DISC || disc_in_tray==-1) && !hide_bd) // && c_firmware==3.55f
-					{
-						ext_devs++;
-						char psx_title[64];
-						sprintf (psx_title, "%s", (const char*) STR_SFD);
-						u8 region = get_psx_region((char*)"/dev_bdvd");
-						if(!region) region = get_psx_region((char*)"/dev_ps2disc");
-						if(!region) region = get_psx_region((char*)"/dev_ps2disc1");
-						if(!region) region = (get_psx_region_cd() & 3);
-						if(region==1) strcat(psx_title, (char*)" [PAL]");
-						else if(region==2) strcat(psx_title, (char*)" [NTSC]");
-						else if(region==3) strcat(psx_title, (char*)" [NTSC/JAP]");
-
-						add_xmb_member(xmb[6].member, &xmb[6].size, (char*)psx_title, (char*)"PSX",
-						/*type*/36, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_blend, 128, 128, /*f_path*/(char*)"/dev_bdvd", /*i_path*/(char*)"/", 0, 0);
-						//disc_in_tray=PSX_DISC;
-					}
-
-					if(!xmb[6].init && !hide_bd)
-					{
-						for(int m=0; m<max; m++)
-						{
-							if(!strcmp(list[m].content, "PS3") && strstr(list[m].path, "/dev_bdvd")!=NULL)
-							{
-								if(m==sel) xmb[6].first=xmb[6].size;
-								g_icon=xmb_icon_blu;
-								g_iconw=320; g_iconh=176;
-								g_status=0;
-
-								if(xmb_cover_column || force_covers)
-								{
-									sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
-									if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem_disc;}
-									sprintf(icon_path, "%s/%s.PNG", covers_dir, list[m].title_id);
-									if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem_disc;}
-
-									if(list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=-1 && list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=1)
-									{
-										sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
-										download_cover(list[xmb[xmb_icon].member[xmb[6].size].game_id].title_id, icon_path);
-										list[xmb[xmb_icon].member[xmb[6].size].game_id].cover=1;
-									}
-								}
-
-								sprintf(icon_path, "%s/%s_320.PNG", cache_dir, list[m].title_id);
-								if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem_disc;}
-								sprintf(icon_path, "%s/ICON0.PNG", list[m].path);
-								if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem_disc;}
-								else {g_status=2; g_iconw=128; g_iconh=128;}
-
-		add_mem_disc:
-								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title, list[m].path,
-								/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
-								ext_devs++;
-							}
-						}
-					}
-
-					ps3_home_scan_bare(iso_ps3, pane, &max_dir);
-
-					for(int ret_f=0; ret_f<9; ret_f++)
-					{
-						sprintf(linkfile, "/dev_usb00%i/%s", ret_f, iso_ps3_usb);
-						ps3_home_scan_bare(linkfile, pane, &max_dir);
-					}
-					for(int ret_f=0; ret_f<max_dir; ret_f++)
-					{
-						if(strstr(pane[ret_f].name, ".iso")!=NULL || strstr(pane[ret_f].name, ".ISO")!=NULL)
-						{
-							snprintf(linkfile, 511, "%s/%s", pane[ret_f].path, pane[ret_f].name);
-							if(strlen(linkfile)>(sizeof(xmb[5].member[0].file_path)-1)) continue;
-							if(pane[ret_f].name[strlen(pane[ret_f].name)-4]=='.') pane[ret_f].name[strlen(pane[ret_f].name)-4]=0;
-							add_xmb_member(xmb[6].member, &xmb[6].size, pane[ret_f].name, (char*)"PS3 ISO",
-								/*type*/32, /*status*/2, /*game_id*/0, /*icon*/xmb_icon_blu, 128, 128, /*f_path*/linkfile, /*i_path*/(char*)"/", 0, 0);
-						}
-
-					}
-
-					free(pane);
-				}
-			}
-		}
-
-		if(!xmb[6].init || !xmb[7].init || !xmb[5].init)
-		{
-			for(int m=0; m<max; m++)
-			{
-				if(!strcmp(list[m].content, "PS3") && strstr(list[m].path, "/dev_bdvd")==NULL)
-				{
-					if(!xmb[6].init)
-					{
-						if(xmb[6].group)
-						{
-							if( (int)((list[m].user>>16)&0x0f) != (xmb[6].group&0x0f) && (xmb[6].group&0x0f) ) continue;
-							if(xmb[6].group>>4)
-							{
-								u8 m_grp= ((xmb[6].group>>4)-1)*2;
-								if( (xmb[6].group>>4)!=15
-									&& (m_grp+0x41) != list[m].title[0]
-									&& (m_grp+0x42) != list[m].title[0]
-									&& (m_grp+0x61) != list[m].title[0]
-									&& (m_grp+0x62) != list[m].title[0]
-									) continue;
-								else if( (xmb[6].group>>4)==15
-									&& ( ( list[m].title[0]>=0x41 && list[m].title[0]<=0x5a)
-									|| (list[m].title[0]>=0x61 && list[m].title[0]<=0x7a) )
-									) continue;
-							}
-						}
-						if(m==sel) xmb[6].first=xmb[6].size;
-						toff=0;
-						if(list[m].title[0]=='_') toff=1;
-						if(strstr(list[m].path, "/dev_bdvd")==NULL) g_icon=xmb[0].data;
-						else {g_icon=xmb_icon_blu;}
-						g_iconw=320; g_iconh=176;
-						g_status=0;
-
-						if(xmb_cover_column || force_covers)
-						{
-							sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
-							if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem;}
-							sprintf(icon_path, "%s/%s.PNG", covers_dir, list[m].title_id);
-							if(exist(icon_path)) {g_iconw=260; g_iconh=300; goto add_mem;}
-
-							if(list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=-1 && list[xmb[xmb_icon].member[xmb[6].size].game_id].cover!=1)
-							{
-								sprintf(icon_path, "%s/%s.JPG", covers_dir, list[m].title_id);
-								download_cover(list[xmb[xmb_icon].member[xmb[6].size].game_id].title_id, icon_path);
-								list[xmb[xmb_icon].member[xmb[6].size].game_id].cover=1;
-							}
-						}
-
-						sprintf(icon_path, "%s/%s_320.PNG", cache_dir, list[m].title_id);
-						if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem;}
-						sprintf(icon_path, "%s/ICON0.PNG", list[m].path);
-						if(exist(icon_path)) {g_iconw=320; g_iconh=176; goto add_mem;}
-						else {g_status=2; g_iconw=128; g_iconh=128;}
-
-add_mem:
-						if(list[m].title[0]=='_') list[m].split=1;
-						add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].path,
-						/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
-
-						if(list[m].user & IS_FAV)
-						{
-							if(m==sel) xmb[7].first=xmb[7].size;
-							add_xmb_member(xmb[7].member, &xmb[7].size, list[m].title+toff, list[m].path,
-							/*type*/1, /*status*/g_status, /*game_id*/m, /*icon*/g_icon, g_iconw, g_iconh, /*f_path*/list[m].path, /*i_path*/(char*)icon_path, list[m].user, list[m].split);
-
-						}
-
-						sort_xmb_col(xmb[6].member, xmb[6].size, 1+ext_devs);
-					}
-				}
-				else if(!strcmp(list[m].content, "AVCHD") || !strcmp(list[m].content, "BDMV") || !strcmp(list[m].content, "DVD"))
-				{
-					if(cover_mode == MODE_XMMB) //!xmb[5].init &&
-					{
-						if(m==sel) xmb[5].first=xmb[5].size;
-						toff=0;
-
-						if(list[m].title[0]=='_') toff=1;
-						else if(strstr(list[m].title, "[Video] ")!=NULL) toff=8;
-						else if(strstr(list[m].title, "[HDD Video] ")!=NULL || strstr(list[m].title, "[DVD Video] ")!=NULL) toff=12;
-						sprintf(t_ip, "%s/HDAVCTN/BDMT_O1.jpg", list[m].path);
-						if(!exist(t_ip)) sprintf(t_ip, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", list[m].path);
-						if(!exist(t_ip)) sprintf(t_ip, "%s/POSTER.JPG", list[m].path);
-						if(!exist(t_ip)) sprintf(t_ip, "%s/COVER.JPG", list[m].path);
-						if(exist(t_ip))
-							add_xmb_member(xmb[5].member, &xmb[5].size, list[m].title+toff, list[m].content,
-							/*type*/2, /*status*/0, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*) t_ip, 0, 0);
-						else
-							add_xmb_member(xmb[5].member, &xmb[5].size, list[m].title+toff, list[m].content,
-							/*type*/2, /*status*/2, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*)"/", 0, 0);
-					}
-					else
-					{
-						if(cover_mode != MODE_XMMB)
-						{
-							if(list[m].title[0]=='_') toff=1;
-							else if(strstr(list[m].title, "[Video] ")!=NULL) toff=8;
-							else if(strstr(list[m].title, "[HDD Video] ")!=NULL || strstr(list[m].title, "[DVD Video] ")!=NULL) toff=12;
-							sprintf(t_ip, "%s/HDAVCTN/BDMT_O1.jpg", list[m].path);
-							if(!exist(t_ip)) sprintf(t_ip, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", list[m].path);
-							if(!exist(t_ip)) sprintf(t_ip, "%s/POSTER.JPG", list[m].path);
-							if(!exist(t_ip)) sprintf(t_ip, "%s/COVER.JPG", list[m].path);
-							if(!exist(t_ip)) sprintf(t_ip, "%s/NOID.JPG", app_usrdir);
-							if(exist(t_ip))
-								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].content,
-								/*type*/2, /*status*/0, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*) t_ip, 0, 0);
-							else
-								add_xmb_member(xmb[6].member, &xmb[6].size, list[m].title+toff, list[m].content,
-								/*type*/2, /*status*/2, /*game_id*/m, /*icon*/xmb_icon_film, 128, 128, /*f_path*/list[m].path, /*i_path*/(char*)"/", 0, 0);
-							sort_xmb_col(xmb[6].member, xmb[6].size, 1+ext_devs);
-						}
-
-					}
-				}
-				if(xmb[5].size>=MAX_XMB_MEMBERS || xmb[6].size>=MAX_XMB_MEMBERS || xmb[7].size>=MAX_XMB_MEMBERS) break;
-			}
-
-			//sort_xmb_col(xmb[6].member, xmb[6].size, ext_devs+1);
-			sort_xmb_col(xmb[7].member, xmb[7].size, 0);
-		}
-
-		if(cover_mode == MODE_XMMB)
-			sort_xmb_col(xmb[5].member, xmb[5].size, 2+ext_devs);
-
-		for(int m=0; m<max; m++)
-		{
-			if(!strcmp(list[m].content, "PS3"))
-			{
-				if(m==sel)
-					for(int m2=0; m2<xmb[6].size; m2++)
-						if(xmb[6].member[m2].game_id==sel) xmb[6].first=m2;
-			}
-			else if(!strcmp(list[m].content, "AVCHD") || !strcmp(list[m].content, "BDMV") || !strcmp(list[m].content, "DVD"))
-			{
-				if(m==sel)
-					for(int m2=0; m2<xmb[5].size; m2++)
-						if(xmb[5].member[m2].game_id==sel) xmb[5].first=m2;
-			}
-		}
-		if(cover_mode == MODE_XMMB)
-			if(disc_in_tray==PSX_DISC || disc_in_tray==PS2_DISC) xmb[6].first=1;
-
-		if(xmb[6].size>1 && xmb[6].first==0) xmb[6].first=1;
-		xmb[6].init=1;
-		xmb[7].init=1;
-		u8 main_group=xmb[6].group & 0x0f;
-		u8 alpha_group=xmb[6].group>>4 & 0x0f;
-
-		if(main_group)
-		{
-			if(alpha_group)
-				sprintf(xmb[6].name, "%s (%s)", genre[main_group], alpha_groups[alpha_group]);
-			else
-				sprintf(xmb[6].name, "%s", genre[main_group]);
-
-		}
-		else
-		{
-			if(alpha_group)
-				sprintf(xmb[6].name, "%s (%s)", xmb_columns[6], alpha_groups[alpha_group]);
-			else
-				sprintf(xmb[6].name, "%s", xmb_columns[6]);
-		}
-		if(xmb_icon==6) draw_xmb_icon_text(xmb_icon);
-}
 
 void add_web_column()
 {
@@ -19578,71 +20049,6 @@ clock_text:
 		display_img(1520, 90, 300, 30, 300, 30, 0.7f, 300, 30);
 }
 
-void draw_xmb_legend(const int _xmb_icon)
-{
-	if(xmb_bg_counter>30 || _xmb_icon==1 || _xmb_icon==9 || c_opacity2<=0x40 || xmb_slide_step!=0 || xmb_slide_step_y!=0 || xmb_popup==0 || key_repeat) return;
-
-	if(!xmb_legend_drawn)
-	{
-		u8 _menu_font=2;
-		if(mm_locale) _menu_font=mui_font;
-
-		xmb_legend_drawn=1;
-		char xmb_text[32]; xmb_text[0]=0;
-		for(int fsr=0; fsr<84000; fsr+=4) *(uint32_t*) ((uint8_t*)(text_MSG)+fsr)=0x22222280;
-
-		if( (_xmb_icon==6 && xmb[_xmb_icon].first) || _xmb_icon==7)
-		{
-			sprintf(xmb_text, ": %s", (char*) STR_SIDE_OPT);
-			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_triangle_x*4 + dox_triangle_y	* dox_width*4), dox_triangle_w,	dox_triangle_h, dox_width, 300, 8, 5);
-		}
-
-		if((_xmb_icon>1 &&_xmb_icon<6) || (_xmb_icon==6 && xmb[_xmb_icon].first==0) || _xmb_icon==8)
-		{
-			if(_xmb_icon==2 && xmb[_xmb_icon].first>1)		 sprintf(xmb_text, "%s", (char*) STR_POP_CHANGE_S);
-			else if(_xmb_icon==2 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_VIEW_SYSINF);
-			else if(_xmb_icon==2 && xmb[_xmb_icon].first==1) sprintf(xmb_text, "%s", (char*) STR_POP_LANGUAGE);
-			else if(_xmb_icon==2 && xmb[_xmb_icon].first==2) sprintf(xmb_text, "%s", (char*) STR_POP_CACHE);
-			else if(_xmb_icon==3)							 sprintf(xmb_text, "%s", (char*) STR_POP_PHOTO);
-			else if(_xmb_icon==4)							 sprintf(xmb_text, "%s", (char*) STR_POP_MUSIC);
-			else if(_xmb_icon==5 && xmb[_xmb_icon].first<2)  sprintf(xmb_text, "%s", (char*) STR_POP_ST);
-			else if(_xmb_icon==5 && xmb[_xmb_icon].first>1)  sprintf(xmb_text, "%s", (char*) STR_POP_VIDEO);
-			else if(_xmb_icon==6 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_REF_GAMES);
-			else if(_xmb_icon==8 && xmb[_xmb_icon].first==0) sprintf(xmb_text, "%s", (char*) STR_POP_REF_ROMS);
-			else if(_xmb_icon==8 && xmb[_xmb_icon].first)	 sprintf(xmb_text, "%s", (char*) STR_POP_ROM);
-
-			if(xmb[_xmb_icon].member[xmb[_xmb_icon].first].type==0)
-			{
-				sprintf(xmb_text, ": %s", (char*) STR_CM_PROPS);
-				put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_triangle_x	*4 + dox_triangle_y	* dox_width*4), dox_triangle_w,	dox_triangle_h,	dox_width, 300, 8, 5);
-			}
-			else
-				put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_cross_x	*4 + dox_cross_y	* dox_width*4), dox_cross_w,	dox_cross_h,	dox_width, 300, 8, 5);
-		}
-
-		if(_xmb_icon==4 || _xmb_icon==6 || _xmb_icon==8)
-		{
-			if(_xmb_icon==6)
-				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_GENRE, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
-			else if(_xmb_icon==8)
-				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_EMU, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
-			else if(_xmb_icon==4)
-				print_label_ex( 0.17f, 0.55f, 0.6f, 0xffd0d0d0, (char*)STR_POP_GRP_NAME, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
-			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_square_x	*4 + dox_square_y	* dox_width*4), dox_square_w,	dox_square_h,	dox_width, 300, 8, 36);
-		}
-		else
-		{
-			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_l1_x*4 + dox_l1_y	* dox_width*4), dox_l1_w,	dox_l1_h, dox_width, 300, 8, 42);
-			put_texture_with_alpha_gen( text_MSG, text_DOX+(dox_r1_x*4 + dox_r1_y	* dox_width*4), dox_r1_w,	dox_r1_h, dox_width, 300, 8+dox_l1_w+5, 42);
-			print_label_ex( 0.475f, 0.55f, 0.6f, 0xffd0d0d0, (char*) STR_POP_SWITCH, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
-		}
-		print_label_ex( 0.17f, 0.10f, 0.6f, 0xffd0d0d0, xmb_text, 1.00f, 0.0f, _menu_font, 6.40f, 18.0f, 0);
-		flush_ttf(text_MSG, 300, 70);
-	}
-	if(c_opacity2<=0x80) change_opacity(text_MSG, -95, 84000);
-	set_texture(text_MSG, 300, 70);
-	display_img(1520, 930, 300, 70, 300, 70, -0.1f, 300, 70);
-}
 
 void draw_xmb_info()
 {
@@ -19805,401 +20211,9 @@ err_web:
 char bluray_game[64], bluray_id[10];
 int bluray_pl=0;
 
-u8 read_pad_info_browse()
-{
-
-	if ( (new_pad & BUTTON_UP) )
-	{
-		c_opacity_delta=16;	dimc=0; dim=1;
-
-		counter_png=30;
-		new_pad=0;
-		if(xmb[0].size>1)
-		{
-			xmb_legend_drawn=0;
-			xmb_info_drawn=0;
-			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[0].first==0) {xmb[0].first=xmb[0].size-1; xmb0_slide_y=0; xmb0_slide_step_y=0; }
-			else
-			{
-				if(xmb0_slide_step_y!=0)
-				{
-					if(xmb0_slide_y >0) { if(xmb[0].first>0) xmb[0].first-=repeat_counter3; xmb0_slide_y=0;}
-					if(xmb0_slide_y <0) { if(xmb[0].first<xmb[0].size-1) xmb[0].first+=repeat_counter3; xmb0_slide_y=0;}
-					if(xmb[0].first==1 || xmb[0].first>=xmb[0].size) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-					if(xmb[0].first>=xmb[0].size) xmb[0].first=xmb[0].size-1;
-				}
-				//else
-				xmb0_slide_step_y=10;
-			}
-		}
-	}
-
-	if ( (new_pad & BUTTON_DOWN) )
-	{
-		c_opacity_delta=16;	dimc=0; dim=1;
-		counter_png=30;
-		new_pad=0;
-		if(xmb[0].size>1)
-		{
-			xmb_legend_drawn=0;
-			xmb_info_drawn=0;
-			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[0].first==xmb[0].size-1) {xmb[0].first=0; xmb0_slide_y=0; xmb0_slide_step_y=0;}
-			else
-			{
-				if(xmb0_slide_step_y!=0)
-				{
-					if(xmb0_slide_y >0) { if(xmb[0].first>0) xmb[0].first-=repeat_counter3; xmb0_slide_y=0;}
-					if(xmb0_slide_y <0) { if(xmb[0].first<xmb[0].size-1) xmb[0].first+=repeat_counter3; xmb0_slide_y=0;}
-					if(xmb[0].first>=xmb[0].size-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-				}
-
-				xmb0_slide_step_y=-10;
-				if(xmb[0].first>=xmb[0].size) xmb[0].first=xmb[0].size-1;
-
-			}
-		}
-	}
-	return 0;
-}
-
-u8 read_pad_info()
-{
-	if(browse_column_active && cover_mode == MODE_XMMB) return read_pad_info_browse();
-	u8 to_return=0;
-	int skip_t=14;
-	if ( ( ( (new_pad & BUTTON_UP)))) {
-		c_opacity_delta=16;	dimc=0; dim=1;
-//		old_pad=0; new_pad=0;
-		counter_png=30;
-		if(cover_mode != MODE_XMMB)
-		{
-			game_sel_last=game_sel;
-			game_sel-=skip_t;
-		}
-		new_pad=0;
-		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
-		{
-			xmb_legend_drawn=0;
-			xmb_info_drawn=0;
-			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[xmb_icon].first==0) {xmb[xmb_icon].first=xmb[xmb_icon].size-1; xmb_slide_y=0; xmb_slide_step_y=0; }
-			else
-			{
-				if(xmb_slide_step_y!=0)
-				{
-					if(xmb_slide_y >0) { if(xmb[xmb_icon].first>0) xmb[xmb_icon].first-=repeat_counter3; xmb_slide_y=0;}
-					if(xmb_slide_y <0) { if(xmb[xmb_icon].first<xmb[xmb_icon].size-repeat_counter3) xmb[xmb_icon].first+=repeat_counter3; xmb_slide_y=0;}
-					if(xmb[xmb_icon].first==1 || xmb[xmb_icon].first>=xmb[xmb_icon].size) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-					if(xmb[xmb_icon].first>=xmb[xmb_icon].size) xmb[xmb_icon].first=xmb[xmb_icon].size-1;
-					load_coverflow_legend();
-				}
-				//else
-				xmb_slide_step_y=10;
-			}
-		}
-		if(game_sel<0) {
-			game_sel=max_menu_list-1;	game_sel_last=game_sel;
-			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}}
-	}
-
-	if ( (((new_pad & BUTTON_DOWN)) && (cover_mode!=4 && cover_mode!=6))) {
-//		old_pad=0; new_pad=0;
-		c_opacity_delta=16;	dimc=0; dim=1;
-		counter_png=30;
-		if(cover_mode != MODE_XMMB)
-		{
-			game_sel_last=game_sel;
-			game_sel+=skip_t;
-			if(skip_t>1 && game_sel>=max_menu_list)
-			{
-				game_sel=max_menu_list-1;
-				if(game_sel_last==game_sel) game_sel=0;
-			}
-		}
-		new_pad=0;
-		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
-		{
-			xmb_legend_drawn=0;
-			xmb_info_drawn=0;
-			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[xmb_icon].first==xmb[xmb_icon].size-1) {xmb[xmb_icon].first=0; xmb_slide_y=0; xmb_slide_step_y=0;}
-			else
-			{
-				if(xmb_slide_step_y!=0)
-				{
-					if(xmb_slide_y >0) { if(xmb[xmb_icon].first>0) xmb[xmb_icon].first-=repeat_counter3; xmb_slide_y=0;}
-					if(xmb_slide_y <0) { if(xmb[xmb_icon].first<xmb[xmb_icon].size-repeat_counter3) xmb[xmb_icon].first+=repeat_counter3; xmb_slide_y=0;}
-					if(xmb[xmb_icon].first>=xmb[xmb_icon].size-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-				}
-				//else
-					xmb_slide_step_y=-10;
-				if(xmb[xmb_icon].first>=xmb[xmb_icon].size) xmb[xmb_icon].first=xmb[xmb_icon].size-1;
-
-			}
 
 
-		}
-		if(game_sel>=max_menu_list) {
-			game_sel=0; game_sel_last=0; counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}
-			}
 
-	}
-
-	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6))) {
-//		old_pad=0; new_pad=0;
-		xmb_legend_drawn=0;
-		xmb_info_drawn=0;
-		if(cover_mode == MODE_XMMB && xmb_icon>1)
-		{
-			if(xmb_slide_step!=0)
-			{
-				if(xmb_slide >0) {if(xmb_icon>2) xmb_icon--;  free_all_buffers(); xmb_slide=0;draw_xmb_icon_text(xmb_icon);}
-				if(xmb_slide <0) {if(xmb_icon<MAX_XMB_ICONS-2) xmb_icon++; free_all_buffers(); xmb_slide=0; draw_xmb_icon_text(xmb_icon);}
-				if(xmb_icon!=1) xmb_slide_step=15;
-				if(xmb_icon==2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-			}
-			else
-				xmb_slide_step=15;
-		}
-		if(cover_mode == MODE_XMMB) goto leave_for8;
-		skip_t=14;
-
-		c_opacity_delta=16; dimc=0; dim=1;
-		if(game_sel == 0) { game_sel=max_menu_list-1; game_sel_last=game_sel; counter_png=0; new_pad=0; {to_return=1; goto leave_for8;}}
-		else {
-//			old_pad=0; new_pad=0;
-			game_sel = game_sel-skip_t; game_sel_last=game_sel;
-			if(game_sel<0) {game_sel = 0; game_sel_last=0; counter_png=0; new_pad=0;{to_return=1; goto leave_for8;}}
-		}
-	}
-
-	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6))) {
-//		old_pad=0; new_pad=0;
-		xmb_legend_drawn=0;
-		xmb_info_drawn=0;
-		if(cover_mode == MODE_XMMB && xmb_icon<MAX_XMB_ICONS-1)
-		{
-			if(xmb_slide_step!=0)
-			{
-				if(xmb_slide >0) {if(xmb_icon>2) xmb_icon--; free_all_buffers(); xmb_slide=0; draw_xmb_icon_text(xmb_icon);}
-				if(xmb_slide <0) {if(xmb_icon<MAX_XMB_ICONS-2) xmb_icon++; free_all_buffers(); xmb_slide=0;draw_xmb_icon_text(xmb_icon);}
-				xmb_slide_step=-15;
-				if(xmb_icon!=MAX_XMB_ICONS-1) xmb_slide_step=-15;
-				if(xmb_icon==MAX_XMB_ICONS-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-			}
-			else
-				xmb_slide_step=-15;
-		}
-		if(cover_mode == MODE_XMMB) goto leave_for8;
-		skip_t=14;
-		c_opacity_delta=16; dimc=0; dim=1;
-		if(game_sel == max_menu_list-1) { game_sel = 0; game_sel_last=game_sel; }
-		else {
-//			old_pad=0; new_pad=0;
-			game_sel = game_sel + skip_t; game_sel_last=game_sel;
-			if(game_sel>=max_menu_list) {game_sel=max_menu_list-1; new_pad=0; game_sel_last=game_sel; counter_png=0; {to_return=1; goto leave_for8;}}
-		}
-	}
-
-
-		if((old_pad & BUTTON_SELECT) && (new_pad & BUTTON_R2))
-		{
-			c_opacity_delta=16;	dimc=0; dim=1;
-			new_pad=0; //state_draw=1;
-			overscan+=0.01f; if(overscan>0.10f) overscan=0.10f;
-			if(cover_mode == MODE_XMMB && xmb_icon==2) redraw_column_texts(xmb_icon);
-			{to_return=1; goto leave_for8;}
-		}
-
-		if((old_pad & BUTTON_SELECT) && (new_pad & BUTTON_L2))
-		{
-			c_opacity_delta=16;	dimc=0; dim=1;
-			new_pad=0; //old_pad=0; state_draw=1;
-			overscan-=0.01f;if(overscan<0.0f) overscan=0.00f;
-			if(cover_mode == MODE_XMMB && xmb_icon==2) redraw_column_texts(xmb_icon);
-			{to_return=1; goto leave_for8;}
-		}
-
-
-leave_for8:
-	return to_return;
-}
-
-
-void draw_whole_xmb(u8 mode)
-{
-	char filename[1024];
-	xmb0_icon=xmb_icon; if(browse_column_active) xmb0_icon=0;
-	drawing_xmb=1;
-	if(bounce<0) bounce=0;
-	if(mode)
-	{
-		pad_read();
-		if(browse_column_active)
-		{
-			read_pad_info_browse();
-			xmb_sublevel=1;
-		}
-		else
-			read_pad_info();
-		ClearSurface();
-	}
-
-	if((xmb_icon>1 && xmb_icon<6 && !is_game_loading) || xmb_icon==8) xmb_bg_counter--;
-
-	if(browse_column_active && xmb[0].init==0) add_browse_column();
-	else if(xmb_icon==5 && xmb[5].init==0) add_video_column();// && xmb_bg_counter<100
-	else if(xmb_icon==4 && xmb[4].init==0) add_music_column();
-	else if(xmb_icon==3 && xmb[3].init==0) add_photo_column();
-
-	else if((xmb_icon==6 && xmb[6].init==0) || (xmb_icon==7 && xmb[7].init==0)) add_game_column(menu_list, max_menu_list, game_sel, (cover_mode != MODE_XMMB));
-
-	else if(xmb_icon==8 && xmb[8].init==0) add_emulator_column();
-
-	if(xmb_slide_step!=0 || xmb_slide_step_y!=0 || (xmb_game_bg==0 && xmb_cover==0) || is_game_loading) xmb_bg_show=0;
-	if(!use_drops) if(xmb_sparks&1 || (xmb_sparks==2 && xmb_bg_show==0)) draw_stars();
-
-	if(!is_caching)
-	{
-		if(!xmb_bg_show || is_game_loading)
-			draw_xmb_bg();
-		else
-		{
-			set_texture( text_FONT, 1920, 1080);
-			display_img(0, 0, 1920, 1080, 1920, 1080, 0.9f, 1920, 1080);
-		}
-	}
-
-	if(use_drops) if(xmb_sparks&1 || (xmb_sparks==2 && xmb_bg_show==0)) draw_stars();
-
-	draw_xmb_clock(xmb_clock, 0);
-	draw_xmb_legend(xmb_icon);
-	draw_xmb_info();
-
-	if(xmb_slide_step!=0) //xmmb sliding horizontally
-	{
-		xmb_slide+=xmb_slide_step+xmb_slide_step*video_mode;
-		if(xmb_slide == 180)  xmb_slide_step= 2;
-		else if(xmb_slide ==-180)  xmb_slide_step=-2;
-		else if(xmb_slide >= 200) {xmb_slide_step= 0; if(xmb_icon==3) free_all_buffers(); xmb_icon--; xmb_slide=0; draw_xmb_icon_text(xmb_icon); parental_pin_entered=0;}
-		else if(xmb_slide <=-200) {xmb_slide_step= 0; if(xmb_icon==3) free_all_buffers(); xmb_icon++; xmb_slide=0; draw_xmb_icon_text(xmb_icon); parental_pin_entered=0;}
-
-		if(xmb_icon>MAX_XMB_ICONS-1) xmb_icon=MAX_XMB_ICONS-1;
-		else if(xmb_icon<1) xmb_icon=1;
-		if(xmb_slide_step==0) xmb_bg_counter=200;
-	}
-
-	if(xmb_slide_step_y!=0) //xmmb sliding vertically
-	{
-		xmb_slide_y+=xmb_slide_step_y+xmb_slide_step_y*video_mode;
-			 if(xmb_slide_y == 20) xmb_slide_step_y = 5;
-		else if(xmb_slide_y ==-20) xmb_slide_step_y =-5;
-		else if(xmb_slide_y == 60) xmb_slide_step_y = 2;
-		else if(xmb_slide_y ==-60) xmb_slide_step_y =-2;
-		else if(xmb_slide_y == 80) xmb_slide_step_y = 1;
-		else if(xmb_slide_y ==-80) xmb_slide_step_y =-1;
-		else if(xmb_slide_y >= 90) {xmb_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[xmb_icon].first>0) xmb[xmb_icon].first--; xmb_slide_y=0;}
-		else if(xmb_slide_y <=-90) {xmb_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[xmb_icon].first<xmb[xmb_icon].size-1) xmb[xmb_icon].first++; xmb_slide_y=0;}
-		if(xmb_slide_step_y==0) xmb_bg_counter=200;
-	}
-
-	if(xmb0_slide_step_y!=0 && browse_column_active) //xmmb browse column sliding vertically
-	{
-		xmb0_slide_y+=xmb0_slide_step_y+xmb0_slide_step_y*video_mode;
-			 if(xmb0_slide_y == 40) xmb0_slide_step_y = 5;
-		else if(xmb0_slide_y ==-40) xmb0_slide_step_y =-5;
-		else if(xmb0_slide_y == 80) xmb0_slide_step_y = 2;
-		else if(xmb0_slide_y ==-80) xmb0_slide_step_y =-2;
-		else if(xmb0_slide_y >= 90) {xmb0_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[0].first>0) xmb[0].first--; xmb0_slide_y=0;}
-		else if(xmb0_slide_y <=-90) {xmb0_slide_step_y= 0; xmb_legend_drawn=0; if(xmb[0].first<xmb[0].size-1) xmb[0].first++; xmb0_slide_y=0;}
-		if(xmb0_slide_step_y==0) xmb_bg_counter=200;
-	}
-
-	if( (xmb_icon==6 || xmb_icon==7) && xmb[xmb_icon].size) // && max_menu_list>0
-	{
-		if(xmb_bg_counter>0 && !xmb_bg_show && !is_game_loading) xmb_bg_counter--;
-		if(xmb_bg_counter==0 && !xmb_bg_show && xmb_slide_step==0 && xmb_slide_step_y==0 && (xmb_game_bg==1 || xmb_cover==1) && (xmb_icon!=6 || (xmb_icon==6 && xmb[xmb_icon].first)) && !is_game_loading)
-		{
-			sprintf(filename, "%s/%s_1920.PNG", cache_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
-			if(exist(filename) && xmb_game_bg==1 && strstr(filename, "AVCHD_1920.PNG")==NULL && strstr(filename, "NO_ID_1920.PNG")==NULL)
-			{
-				load_png_texture(text_FONT, filename, 1920);
-				if(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].split==1 || menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title[0]=='_') gray_texture(text_FONT, 1920, 1080, 0);
-			}
-			else memcpy(text_FONT, text_bmp, 8294400);
-
-			if(xmb_cover==1)// && xmb_icon==6)
-			{
-				if(xmb_cover_column)
-				{
-					sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
-					if(exist(filename))
-					load_png_texture(text_FONT+4419016, filename, 1920);//(575*1920+814)*4
-				}
-				else
-				{
-					sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
-					char cvstr [128];
-					if(exist(filename))
-						{
-							sprintf(cvstr, "%s/CBOX3.PNG", app_usrdir);
-							if(exist(cvstr)){
-								load_texture(text_TEMP, cvstr, 349);
-								put_texture_with_alpha( text_FONT, text_TEMP, 349, 356, 349, 785, 550, 0, 0);
-							}
-
-							load_jpg_texture(text_FONT+4419256, filename, 1920);//(575*1920+814)*4
-
-							sprintf(filename, "%s/GLC.PNG", app_usrdir);
-							if(exist(filename))
-							{
-								load_texture(text_TEMP, filename, 260);
-								put_texture_with_alpha( text_FONT, text_TEMP, 260, 300, 260, 814, 575, 0, 0);
-							}
-						}
-					else
-					{
-						if(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover!=-1 && menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover!=1)
-						{
-							download_cover(menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id, filename);
-							menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].cover=1;
-						}
-						sprintf(filename, "%s/%s.PNG", covers_dir, menu_list[xmb[xmb_icon].member[xmb[xmb_icon].first].game_id].title_id);
-						if(exist(filename))
-						{
-							sprintf(cvstr, "%s/CBOX3.PNG", app_usrdir);
-							if(exist(cvstr)){
-								load_png_texture(text_TEMP, cvstr, 349);
-								put_texture_with_alpha( text_FONT, text_TEMP, 349, 356, 349, 785, 550, 0, 0);
-							}
-							load_texture(text_FONT+(575*1920+814)*4, filename, 1920);
-
-							sprintf(filename, "%s/GLC.PNG", app_usrdir);
-							if(exist(filename))
-							{
-								load_texture(text_TEMP, filename, 260);
-								put_texture_with_alpha( text_FONT, text_TEMP, 260, 300, 260, 814, 575, 0, 0);
-							}
-
-						}
-					}
-				}
-			}
-				xmb_bg_show=1;
-
-		}
-	}
-
-	draw_xmb_icons(xmb, xmb_icon, xmb_slide, xmb_slide_y, 0, xmb_sublevel, bounce);
-	if((xmb_icon==6 || xmb_icon==7 || xmb_icon==5) && xmb[xmb_icon].member[xmb[xmb_icon].first].game_id!=-1) game_sel=xmb[xmb_icon].member[xmb[xmb_icon].first].game_id;
-	if(xmb_icon==2) xmb_settings_sel=xmb[2].first;
-
-	if(mode) flip();
-
-	drawing_xmb=0;
-}
 
 
 void draw_browse_column(xmb_def *_xmb, const int _xmb_icon_, int _xmb_x_offset, int _xmb_y_offset, const bool _recursive, int sub_level)
@@ -22263,9 +22277,9 @@ rename_title:
 				wchar_t *pin_result2;
 				pin_result2 = (wchar_t*)OutputInfo.pResultString;
 				wcstombs(pin_result, pin_result2, 64);
-				if(strlen(pin_result)>1) {
-					u8 n;
-					for(n=0; n<(strlen(pin_result)-3); n++)
+				if(strlen(pin_result)>1)
+				{
+					for(u8 n=0; n<(strlen(pin_result)-3); n++)
 					{
 						// (TM) = E2 84 A2 | 28 54 4D 29
 						if(pin_result[n]==0x28 && (pin_result[n+1]==0x54 || pin_result[n+1]==0x74) && (pin_result[n+2]==0x4D || pin_result[n+2]==0x6D) && pin_result[n+3]==0x29)
@@ -22278,7 +22292,7 @@ rename_title:
 						}
 					}
 
-					for(n=0; n<(strlen(pin_result)-2); n++)
+					for(u8 n=0; n<(strlen(pin_result)-2); n++)
 					{
 						// (R)  = C2 AE    | 28 52 29
 						if(pin_result[n]==0x28 && (pin_result[n+1]==0x52 || pin_result[n+1]==0x72) && pin_result[n+2]==0x29)
@@ -22289,7 +22303,7 @@ rename_title:
 						}
 					}
 
-					for(n=0; n<(strlen(pin_result)-2); n++)
+					for(u8 n=0; n<(strlen(pin_result)-2); n++)
 					{
 						// (C)  = C2 A9    | 28 63 29
 						if(pin_result[n]==0x28 && (pin_result[n+1]==0x43 || pin_result[n+1]==0x63) && pin_result[n+2]==0x29)
