@@ -724,8 +724,6 @@ int clear_activity_logs=1;
 
 int	sc36_path_patch=0;
 
-int lock_display_mode=-1;
-int lock_fileman=0;
 int scale_icon_h=0;
 char fm_func[32];
 int parental_level=0;
@@ -1511,7 +1509,7 @@ void wait_dialog()
 {
 
 	while(!dialog_ret)
-		{
+	{
 
 		if(init_finished)
 		{
@@ -1522,38 +1520,36 @@ void wait_dialog()
 				ClearSurface();
 				draw_fileman();
 				flip();
-				sys_timer_usleep(1668);
 			}
-			else
-			{
-				flip();
-				sys_timer_usleep(1668);
-			}
-
 		}
 		else
-			{flip();sys_timer_usleep(1668);}
+		{
+			flip();
+			sys_timer_usleep(1668);
 		}
+	}
 
 
 	cellMsgDialogClose(60.0f);
 	setRenderColor();
 	if(cover_mode == MODE_XMMB && init_finished)
-		for(int jw=0; jw<40; jw++)
+	{
+		for(int jw=0; jw < 40; jw++)
 		{
 			draw_whole_xmb(xmb_icon);
 		}
+	}
 }
 
 void wait_dialog_simple()
 {
 
 	while(!dialog_ret)
-		{
+	{
 
 		sys_timer_usleep(1668);
 		flip();
-		}
+	}
 
 	cellMsgDialogClose(60.0f);
 	setRenderColor();
@@ -2929,8 +2925,6 @@ void net_folder_copy(char *path, char *path_new, char *path_name)
 
 			sprintf(net_path, "%s%s", net_host_file2, net_path_bare);
 			net_path[strlen(path2)]=0;
-			//		sprintf(string1n, "[%s] [%s] [%s]", path_new); //, (double) (copy_global_bytes/1024.0f/1024.0f)
-			//		dialog_ret=0;cellMsgDialogOpen2( type_dialog_yes_no, string1n, dialog_fun1, (void*)0x0000aaaa, NULL );	wait_dialog();
 
 			if((strstr(path_new, "/ps3_home/video")!=NULL && strcmp(net_path, path2)==0 && (strstr(title, ".avi")!=NULL || strstr(title, ".AVI")!=NULL || strstr(title, ".m2ts")!=NULL || strstr(title, ".M2TS")!=NULL || strstr(title, ".mts")!=NULL || strstr(title, ".MTS")!=NULL || strstr(title, ".m2t")!=NULL || strstr(title, ".M2T")!=NULL || strstr(title, ".divx")!=NULL || strstr(title, ".DIVX")!=NULL || strstr(title, ".mpg")!=NULL || strstr(title, ".MPG")!=NULL || strstr(title, ".mpeg")!=NULL || strstr(title, ".MPEG")!=NULL || strstr(title, ".mp4")!=NULL || strstr(title, ".MP4")!=NULL || strstr(title, ".vob")!=NULL || strstr(title, ".VOB")!=NULL || strstr(title, ".wmv")!=NULL || strstr(title, ".WMV")!=NULL || strstr(title, ".ts")!=NULL || strstr(title, ".TS")!=NULL || strstr(title, ".mov")!=NULL || strstr(title, ".MOV")!=NULL) ))
 			{
@@ -5656,9 +5650,6 @@ static void mount_with_cache(const char *path, int _joined, u32 flags, const cha
 		sprintf(s1, "/dev_bdvd%s", file_to_join[n].split_file);
 		sprintf(s2, "/app_home%s", file_to_join[n].split_file);
 		sprintf(cached_file, "%s", file_to_join[n].cached_file);
-
-		//sprintf(filename, "#%i [%s]\n[%s]\n[%s]", n+1, s1, s2, cached_file);
-		//dialog_ret=0; cellMsgDialogOpen2( type_dialog_ok, filename, dialog_fun2, (void*)0x0000aaab, NULL );	wait_dialog();
 
 		strncpy(&open_table.arena[entries*m_step*2], s1, m_step);
 		strncpy(&open_table.arena[entries*m_step*2+m_step], cached_file, m_step);
@@ -8513,12 +8504,6 @@ void read_dir(char *path, t_dir_pane *list, int *max)
 						sprintf(list[*max].datetime, "%c%c%c%c/%c%c/%c%c", date2[6], date2[7], date2[8], date2[9], date2[3], date2[4], date2[0], date2[1]);
 
 				}
-
-
-
-
-				//			sprintf(filename, "Path: [%s]\nInfo [%f] [%s] [%f]", list[*max].path, list[*max].size/1.0f, length, strtol(length, NULL, 10)/1.0f); dialog_ret=0; cellMsgDialogOpen2( type_dialog_yes_no, filename, dialog_fun1, (void*)0x0000aaaa, NULL );wait_dialog();
-
 				(*max) ++;
 				if(*max >=2048) break;
 
@@ -10904,7 +10889,10 @@ int my_game_copy(char *path, char *path2)
 	freeSpace = ( (uint64_t) (blockSize * freeSize) );
 	if((uint64_t)global_device_bytes>(uint64_t)freeSpace && use_symlinks!=1 && freeSpace!=0)
 	{
-		sprintf(string1, (const char*) STR_ERR_NOSPACE1, (double) ((freeSpace)/1048576.00f), (double) ((global_device_bytes-freeSpace)/1048576.00f) );	dialog_ret=0;cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL ); wait_dialog();
+		sprintf(string1, (const char*) STR_ERR_NOSPACE1, (double) ((freeSpace)/1048576.00f), (double) ((global_device_bytes-freeSpace)/1048576.00f) );
+		dialog_ret=0;
+		cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL );
+		wait_dialog();
 		abort_copy=1;
 		goto return_error;
 	}
@@ -12495,7 +12483,9 @@ void draw_dir_pane( t_dir_pane *list, int pane_size, int first_to_show, int max_
 
 						cellMsgDialogAbort();
 						sprintf(string1, "GameOS memory exported successfully to file:\n\n%s", lv2file);
-						dialog_ret=0; cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL ); wait_dialog();
+						dialog_ret=0;
+						cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL );
+						wait_dialog();
 
 						//if(c_firmware==3.55f)
 						{
@@ -12521,7 +12511,9 @@ void draw_dir_pane( t_dir_pane *list, int pane_size, int first_to_show, int max_
 								//load_texture(text_bmpBG, userBG, 1920);
 								cellMsgDialogAbort();
 								sprintf(string1, "Hypervisor memory exported successfully to file:\n\n%s", lv2file);
-								dialog_ret=0; cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL ); wait_dialog();
+								dialog_ret=0;
+								cellMsgDialogOpen2( type_dialog_ok, string1, dialog_fun2, (void*)0x0000aaab, NULL );
+								wait_dialog();
 							}
 						}
 						set_fm_stripes();
@@ -14716,24 +14708,11 @@ if ( fp != NULL )
 		if(strstr (line,"clear_activity_logs=0")!=NULL) clear_activity_logs=0;
 		if(strstr (line,"clear_activity_logs=1")!=NULL) clear_activity_logs=1;
 
-		if(strstr (line,"lock_display_mode=0")!=NULL) lock_display_mode=0;
-		if(strstr (line,"lock_display_mode=1")!=NULL) lock_display_mode=1;
-		if(strstr (line,"lock_display_mode=2")!=NULL) lock_display_mode=2;
-		if(strstr (line,"lock_display_mode=3")!=NULL) lock_display_mode=3;
-		if(strstr (line,"lock_display_mode=4")!=NULL) lock_display_mode=4;
-		if(strstr (line,"lock_display_mode=5")!=NULL) lock_display_mode=5;
-		if(strstr (line,"lock_display_mode=6")!=NULL) lock_display_mode=6;
-		if(strstr (line,"lock_display_mode=7")!=NULL) lock_display_mode=7;
-		if(strstr (line,"lock_display_mode=8")!=NULL) lock_display_mode=8;
-
 		if(strstr (line,"expand_avchd=0")!=NULL) expand_avchd=0;
 		if(strstr (line,"expand_avchd=1")!=NULL) expand_avchd=1;
 
 		if(strstr (line,"expand_media=0")!=NULL) expand_media=0;
 		if(strstr (line,"expand_media=1")!=NULL) expand_media=1;
-
-		if(strstr (line,"lock_fileman=0")!=NULL) lock_fileman=0;
-		if(strstr (line,"lock_fileman=1")!=NULL) lock_fileman=1;
 
 		if(strstr (line,"progress_bar=0")!=NULL) progress_bar=0;
 		if(strstr (line,"progress_bar=1")!=NULL) progress_bar=1;
@@ -18524,8 +18503,6 @@ void save_options()
 		fprintf(fpA, "fullpng=%i\r\n", initial_cover_mode);
 		fprintf(fpA, "user_font=%i\r\n", user_font);
 		fprintf(fpA, "mm_locale=%i\r\n", mm_locale);
-		fprintf(fpA, "lock_display_mode=%i\r\n", lock_display_mode);
-		fprintf(fpA, "lock_fileman=%i\r\n", lock_fileman);
 
 		fprintf(fpA, "overscan=%i\r\n", (int)(overscan*100.f));
 		fprintf(fpA, "display_mode=%i\r\n", display_mode);
@@ -18588,13 +18565,10 @@ void parse_settings()
 		else if(!strcmp(oini, "xmb_cover_column"))	xmb_cover_column=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 		else if(!strcmp(oini, "verify_data"))		verify_data		=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 		else if(!strcmp(oini, "scan_for_apps"))		scan_for_apps	=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
-		else if(!strcmp(oini, "full_png"))			initial_cover_mode	=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 		else if(!strcmp(oini, "user_font"))			user_font		=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 
 		else if(!strcmp(oini, "theme_sound"))		theme_sound		=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 
-		else if(!strcmp(oini, "lock_display_mode"))	lock_display_mode	=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
-		else if(!strcmp(oini, "lock_fileman"))		lock_fileman	=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 		else if(!strcmp(oini, "overscan"))			overscan		=(float)((float)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10)/100.f);
 		else if(!strcmp(oini, "display_mode"))		display_mode	=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
 		else if(!strcmp(oini, "showdir"))			dir_mode		=(int)strtol(xmb[2].member[n].option[xmb[2].member[n].option_selected].value, NULL, 10);
@@ -18738,13 +18712,6 @@ void add_settings_column()
 		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_FUNC4,			(char*)"2");
 		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_FUNC5,			(char*)"3");
 		xmb[2].member[xmb[2].size-1].option_selected=disable_options;
-
-		add_xmb_option(xmb[2].member, &xmb[2].size, (char*)STR_XC2_FM_ACC, (char*)STR_XC2_FM_ACC1,	(char*)"lock_fileman");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_ENABLE,			(char*)"0");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DISABLE,			(char*)"1");
-		xmb[2].member[xmb[2].size-1].option_selected=lock_fileman;
-		xmb[2].member[xmb[2].size-1].icon=xmb_icon_desk;
-
 		add_xmb_option(xmb[2].member, &xmb[2].size, (char*)STR_XC2_USB_VRF, (char*)STR_XC2_USB_VRF1,	(char*)"verify_data");
 		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DISABLE,						(char*)"0");
 		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_AUTO,						(char*)"1");
@@ -18808,33 +18775,6 @@ void add_settings_column()
 		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_ACC3,	(char*)"1");
 		xmb[2].member[xmb[2].size-1].option_selected=confirm_with_x;
 
-	}
-		add_xmb_option(xmb[2].member, &xmb[2].size, (char*)STR_XC2_DM, (char*)STR_XC2_DM1,	(char*)"full_png");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM2,					(char*)"0");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM3,					(char*)"1");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM4,					(char*)"2");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM5,					(char*)"3");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM6,					(char*)"4");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM7,					(char*)"5");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM8,					(char*)"6");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM9,					(char*)"7");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM10,					(char*)"8");
-		xmb[2].member[xmb[2].size-1].option_selected=initial_cover_mode;
-
-	if(settings_advanced)
-	{
-		add_xmb_option(xmb[2].member, &xmb[2].size, (char*)STR_XC2_LOCKDM, (char*)STR_XC2_LOCKDM1,	(char*)"lock_display_mode");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DISABLE,								(char*)"-1");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM2,					(char*)"0");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM3,					(char*)"1");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM4,					(char*)"2");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM5,					(char*)"3");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM6,					(char*)"4");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM7,					(char*)"5");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM8,					(char*)"6");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM9,					(char*)"7");
-		add_xmb_suboption(xmb[2].member[xmb[2].size-1].option, &xmb[2].member[xmb[2].size-1].option_size, 0, (char*)STR_XC2_DM10,					(char*)"8");
-		xmb[2].member[xmb[2].size-1].option_selected=lock_display_mode+1;
 	}
 
 		if(user_font<10)
@@ -19077,10 +19017,6 @@ void add_home_column()
 		sprintf(xmb[1].name, "%s", xmb_columns[1]); xmb[1].first=1; xmb[1].size=0;
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_UPDATE, (char*)STR_XC1_UPDATE1,
 				/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_update, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-		if(lock_fileman)
-		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_FILEMAN0, (char*)STR_XC1_FILEMAN1,
-				/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_desk, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-		else
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_FILEMAN, (char*)STR_XC1_FILEMAN1,
 				/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_desk, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_REFRESH, (char*)STR_XC1_REFRESH1,
@@ -22451,18 +22387,15 @@ next_for_FM:
 open_file_manager:
 
 			state_draw=1; c_opacity=0xff; c_opacity2=0xff;
-			if(!lock_fileman)
-			{
-				cover_mode = MODE_FILEMAN;
-				counter_png=0;
-				state_read=1;
-				state_draw=1;
-				memset(text_bmpUPSR, 0, 8294400);
-				set_fm_stripes();
-				old_fi=-1;
-				mouseX=0.5f; mouseY=0.5f;
-				goto skip_to_FM;
-			}
+			cover_mode = MODE_FILEMAN;
+			counter_png=0;
+			state_read=1;
+			state_draw=1;
+			memset(text_bmpUPSR, 0, 8294400);
+			set_fm_stripes();
+			old_fi=-1;
+			mouseX=0.5f; mouseY=0.5f;
+			goto skip_to_FM;
 		}
 
 
@@ -23389,11 +23322,8 @@ reinit_side_menu:
 				if(disable_options==1 || disable_options==3)
 					opt_list[8].label[0]='!'; //delete disabled
 
-				if(!lock_fileman)
-				{
-					sprintf(opt_list[10].label, " %s", STR_XC1_FILEMAN);
-					sprintf(opt_list[10].value, "%s", "fileman");
-				}
+				sprintf(opt_list[10].label, " %s", STR_XC1_FILEMAN);
+				sprintf(opt_list[10].value, "%s", "fileman");
 
 				if( strstr(xmb[xmb0_icon].member[xmb[xmb0_icon].first].file_path, "/dev_hdd0/video")!=NULL ||
 					strstr(xmb[xmb0_icon].member[xmb[xmb0_icon].first].file_path, "/dev_hdd0/photo")!=NULL ||
@@ -23487,11 +23417,8 @@ reinit_side_menu:
 					sprintf(opt_list[12].value, "%s", "game_ren");
 				}
 
-				if(!lock_fileman)
-				{
-					sprintf(opt_list[14].label, " %s", STR_XC1_FILEMAN);
-					sprintf(opt_list[14].value, "%s", "fileman");
-				}
+				sprintf(opt_list[14].label, " %s", STR_XC1_FILEMAN);
+				sprintf(opt_list[14].value, "%s", "fileman");
 			}
 
 
@@ -23949,7 +23876,7 @@ cancel_theme_exit:
 		if(xmb_icon==1) //home
 		{
 			if(xmb[1].first==0) force_update_check=1;
-			if(xmb[1].first==1) { if(!lock_fileman) {cover_mode = MODE_FILEMAN; new_pad=0; goto open_file_manager;}}
+			if(xmb[1].first==1) { cover_mode = MODE_FILEMAN; new_pad=0; goto open_file_manager;}
 			if(xmb[1].first==2) goto refresh_list_0;
 			if(xmb[1].first==3) goto switch_ntfs;
 			if(xmb[1].first==4) {screen_saver(); goto start_of_loop; }
@@ -24009,9 +23936,9 @@ cancel_theme_exit:
 
 			if(xmb[2].first>1) xmb[2].member[xmb[2].first].data=-1;
 
-			if(!strcmp(xmb[2].member[xmb[2].first].optionini, "parental_level") || !strcmp(xmb[2].member[xmb[2].first].optionini, "parental_pass") || !strcmp(xmb[2].member[xmb[2].first].optionini, "disable_options") || !strcmp(xmb[2].member[xmb[2].first].optionini, "lock_fileman"))
+			if(!strcmp(xmb[2].member[xmb[2].first].optionini, "parental_level") || !strcmp(xmb[2].member[xmb[2].first].optionini, "parental_pass") || !strcmp(xmb[2].member[xmb[2].first].optionini, "disable_options"))
 			{
-				if(parental_pin_entered && (!strcmp(xmb[2].member[xmb[2].first].optionini, "disable_options") || !strcmp(xmb[2].member[xmb[2].first].optionini, "parental_level") || !strcmp(xmb[2].member[xmb[2].first].optionini, "lock_fileman") )) goto xmb_pin_ok;
+				if(parental_pin_entered && (!strcmp(xmb[2].member[xmb[2].first].optionini, "disable_options") || !strcmp(xmb[2].member[xmb[2].first].optionini, "parental_level"))) goto xmb_pin_ok;
 
 				{
 					sprintf(string1, "%s", (const char*) STR_PIN_ENTER);
@@ -24161,20 +24088,6 @@ xmb_pin_ok2:
 				dialog_ret=0;
 				cellMsgDialogOpen2( type_dialog_ok, (const char*) STR_ERR_BDEMU1, dialog_fun2, (void*)0x0000aaab, NULL );
 				wait_dialog();
-
-			}
-
-			if(!strcmp(xmb[2].member[xmb[2].first].optionini, "lock_fileman"))
-			{
-				if(lock_fileman) sprintf(xmb[1].member[1].name, "%s", STR_XC1_FILEMAN0);
-				else sprintf(xmb[1].member[1].name, "%s", STR_XC1_FILEMAN);
-				for(int n=0; n<MAX_XMB_TEXTS; n++)
-				{
-					xmb_txt_buf[n].used=0;
-				}
-				xmb_txt_buf_max=0;
-				for(int n=0; n<xmb[1].size; n++) xmb[1].member[n].data=-1;
-				for(int n=0; n<xmb[2].size; n++) xmb[2].member[n].data=-1;
 
 			}
 
