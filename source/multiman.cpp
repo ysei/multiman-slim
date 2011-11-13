@@ -1373,7 +1373,7 @@ mp3_playlist_type mp3_playlist[MAX_MP3];
 int max_mp3=0;
 int current_mp3=0;
 
-float angle_dynamic(float min, float max)   // angle global var changes each flip (0 to 359 degrees)
+static float angle_dynamic(float min, float max)   // angle global var changes each flip (0 to 359 degrees)
 											// 3.6 degrees per flip
 {
 	if(angle<180.f)
@@ -1382,7 +1382,7 @@ float angle_dynamic(float min, float max)   // angle global var changes each fli
 		return (float)(((360.f/angle) - 1.f) * (max-min))+min;
 }
 
-char *tmhour(int _hour)
+static char *tmhour(int _hour)
 {
 	int th=_hour;
 	if(time_format) th=_hour;//sprintf(time_result, "%2d", _hour);
@@ -1518,7 +1518,7 @@ void wait_dialog()
 		{
 			if(cover_mode == MODE_XMMB) draw_whole_xmb(xmb_icon);//draw_xmb_bare(xmb_icon, 1, 0, 0);
 			else if(cover_mode == MODE_FILEMAN) { ClearSurface(); draw_fileman();  flip();sys_timer_usleep(1668);}
-			else if(cover_mode>=0 && cover_mode<3 || cover_mode==7)
+			else if(cover_mode>=0 && cover_mode<3)
 				{
 					ClearSurface();
 					set_texture( text_bmp, 1920, 1080);
@@ -6705,7 +6705,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						else
 							sprintf(ansi, "%s", menu[i].title);
 
-						if( (_cover_mode==1 ||_cover_mode==7)) { ansi[128]=0; }
+						if(_cover_mode==1) { ansi[128]=0; }
 						sprintf(str, "%s%s", ansi, is_split );
 					}
 					else
@@ -20213,14 +20213,12 @@ u8 read_pad_info()
 	if(browse_column_active && cover_mode == MODE_XMMB) return read_pad_info_browse();
 	u8 to_return=0;
 	int skip_t=14;
-	if ( ( ( (new_pad & BUTTON_UP) || ( (new_pad & BUTTON_L2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( ( ( (new_pad & BUTTON_UP) || ( (new_pad & BUTTON_L2) && (cover_mode==1))) && (cover_mode!=4 && cover_mode!=6))) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 //		old_pad=0; new_pad=0;
 		counter_png=30;
 		if(cover_mode==1) skip_t=4; else
-		if(cover_mode==7) skip_t=8; else skip_t=1;
 		if(cover_mode==1 && (new_pad & BUTTON_L2)) skip_t=8;
-		if(cover_mode==7 && (new_pad & BUTTON_L2)) skip_t=32;
 		if(cover_mode != MODE_XMMB && cover_mode!=4)
 		{
 			game_sel_last=game_sel;
@@ -20254,17 +20252,14 @@ u8 read_pad_info()
 			//xmb_slide_step_y=0;
 			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB && cover_mode!=4) {to_return=1; goto leave_for8;}}
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
-		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
-	if ( (((new_pad & BUTTON_DOWN) || ( (new_pad & BUTTON_R2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( (((new_pad & BUTTON_DOWN) || ( (new_pad & BUTTON_R2) && (cover_mode==1))) && (cover_mode!=4 && cover_mode!=6))) {
 //		old_pad=0; new_pad=0;
 		c_opacity_delta=16;	dimc=0; dim=1;
 		counter_png=30;
 		if(cover_mode==1) skip_t=4; else
-		if(cover_mode==7) skip_t=8; else skip_t=1;
 		if(cover_mode==1 && (new_pad & BUTTON_R2)) skip_t=8;
-		if(cover_mode==7 && (new_pad & BUTTON_R2)) skip_t=32;
 		if(cover_mode != MODE_XMMB && cover_mode!=4)
 		{
 			game_sel_last=game_sel;
@@ -20306,7 +20301,6 @@ u8 read_pad_info()
 			}
 
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
-		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
 	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6))) {
@@ -20326,7 +20320,7 @@ u8 read_pad_info()
 				xmb_slide_step=15;
 		}
 		if(cover_mode == MODE_XMMB) goto leave_for8;
-		if(cover_mode==1 || cover_mode==7) skip_t=1;
+		if(cover_mode==1) skip_t=1;
 		else skip_t=14;
 
 		c_opacity_delta=16; dimc=0; dim=1;
@@ -20337,7 +20331,6 @@ u8 read_pad_info()
 			if(game_sel<0) {game_sel = 0; game_sel_last=0; counter_png=0; new_pad=0;{to_return=1; goto leave_for8;}}
 		}
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
-		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
 	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6))) {
@@ -20358,7 +20351,7 @@ u8 read_pad_info()
 				xmb_slide_step=-15;
 		}
 		if(cover_mode == MODE_XMMB) goto leave_for8;
-		if(cover_mode==1 || cover_mode==7) skip_t=1;
+		if(cover_mode==1) skip_t=1;
 		else skip_t=14;
 		c_opacity_delta=16; dimc=0; dim=1;
 		if(game_sel == max_menu_list-1) { game_sel = 0; game_sel_last=game_sel; }
@@ -20368,7 +20361,6 @@ u8 read_pad_info()
 			if(game_sel>=max_menu_list) {game_sel=max_menu_list-1; new_pad=0; game_sel_last=game_sel; counter_png=0; {to_return=1; goto leave_for8;}}
 		}
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0; {to_return=1; goto leave_for8;}}
-		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0; {to_return=1; goto leave_for8;}}
 	}
 
 
@@ -22498,13 +22490,12 @@ start_of_loop:
 force_reload:
 	is_game_loading=0;
 	//use_depth=(cover_mode != MODE_XMMB);
-	if( (old_fi!=game_sel && game_sel>=0 && game_sel<max_menu_list && max_menu_list>0 && counter_png==0) || (cover_mode==1 && game_last_page!=int(game_sel/8)) || (cover_mode==7 && game_last_page!=int(game_sel/32)) )
+	if( (old_fi!=game_sel && game_sel>=0 && game_sel<max_menu_list && max_menu_list>0 && counter_png==0) || (cover_mode==1 && game_last_page!=int(game_sel/8)))
 		{
 			old_fi=game_sel;
 			counter_png=10;
-			if( (cover_mode!=1 && cover_mode!=7) || (cover_mode==1 && game_last_page!=int(game_sel/8)) || ( cover_mode==7 && game_last_page!=int(game_sel/32)) ) draw_legend=1;
-//			if( ( (cover_mode!=1) || (cover_mode==1 && game_last_page!=int(game_sel/8))) || ( (cover_mode!=7) || (cover_mode==7 && game_last_page!=int(game_sel/32))) ) draw_legend=1;
-
+			if( (cover_mode!=1 && cover_mode!=7) || (cover_mode==1 && game_last_page!=int(game_sel/8)))
+				draw_legend=1;
 			if(mode_list==0)
 			{
 // mode 4x2
@@ -22641,169 +22632,6 @@ fixed_cover:
 
 					counter_png=40;
 				}
-
-				if(cover_mode==7 && int(game_sel/32)!=game_last_page)
-				{
-					legend_y=760;
-					//rnd=time(NULL)&0x03;
-					sprintf(auraBG, "%s/AUR5.JPG", app_usrdir);
-					load_texture(text_bmp, auraBG, 1920);
-
-					ClearSurface();
-					set_texture( text_bmp, 1920, 1080); //PIC1.PNG
-					display_img(0, 0, 1920, 1080, 1920, 1080, 0.0f, 1920, 1080);
-					flip();
-
-//					gray_texture(text_bmp, 1920, 1080);
-//					if(game_last_page==-1)
-					memcpy(text_FONT, text_bmp + (1920*4*legend_y), (1920*4*legend_h));
-					game_last_page=int(game_sel/32); last_selected=-1;
-
-					int game_rel=0, c_x=0, c_y=0, c_game=0, game_rel2;
-					game_rel2=int(game_sel/32)*32;
-					int glo_box=0;
-
-					sprintf(filename, "%s/SBOX.PNG", app_usrdir);
-					load_texture(text_FONT+1024*1024*7, filename, 432);
-					mip_texture( text_FONT+1024*1024*1, text_FONT+1024*1024*7, 432, 366, -2); // -> 216x183
-
-					sprintf(filename, "%s/GLC3.PNG", app_usrdir);
-					if(exist(filename))
-					{
-						load_texture(text_FONT+1024*1024*7, filename, 130);
-						glo_box=1;
-					}
-
-
-					for (game_rel=game_rel2; (((game_rel-game_rel2)<32) && game_rel<max_menu_list); game_rel++)
-						{
-
-
-						cover_available=0;
-						if(strstr(menu_list[game_rel].content,"PS3")!=NULL)
-						{
-							sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[game_rel].title_id);
-							if(exist(filename))
-							{
-								cover_available=1;
-								goto fixed_cover_7;
-							}
-							else
-								sprintf(filename, "%s/%s.PNG", covers_dir, menu_list[game_rel].title_id);
-
-							if(exist(filename))
-							{
-								cover_available=1;
-								goto fixed_cover_7;
-							}
-							else
-							{
-								if((menu_list[game_rel].cover!=-1 && menu_list[game_rel].cover!=1))
-								{
-									sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[game_rel].title_id);
-									download_cover(menu_list[game_rel].title_id, filename);
-								}
-							}
-
-							if(exist(filename))
-							{
-								cover_available=1;
-								goto fixed_cover_7;
-							}
-							else
-							{
-								//menu_list[game_rel].cover=-1;
-								if(strstr(menu_list[game_rel].path, "/pvd_usb")!=NULL)
-									sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[game_rel].title_id);
-									//sprintf(filename, "%s", blankBG);
-								else
-								{
-//									sprintf(filename, "%s/PS3_GAME/ICON0.PNG", menu_list[game_rel].path);
-									sprintf(filename, "%s/NOID.JPG", app_usrdir);
-									cover_available=1;
-									goto fixed_cover_7;
-//									if(!exist(filename)) sprintf(filename, "%s/ICON0.PNG", menu_list[game_rel].path);
-								}
-
-								cover_available=0;
-							}
-							goto fixed_cover_7;
-						}
-
-						else //not a ps3 game
-						{
-							if(strstr(menu_list[game_rel].content,"PS2")!=NULL)	{sprintf(filename, "%s", ps2png); goto fixed_cover_7;}
-							if(strstr(menu_list[game_rel].content,"DVD")!=NULL)	{
-								sprintf(filename, "%s/COVER.JPG", menu_list[game_rel].path);
-								if(!exist(filename)) sprintf(filename, "%s/COVER.PNG", menu_list[game_rel].path);
-								if(exist(filename)) {
-									cover_available=1;
-									goto fixed_cover_7;
-								}
-								cover_available=0;
-								sprintf(filename, "%s", dvdpng); goto fixed_cover_7;
-							}
-
-							sprintf(filename, "%s/COVER.JPG", menu_list[game_rel].path);
-							if(!exist(filename) ) sprintf(filename, "%s/COVER.PNG", menu_list[game_rel].path);
-							if(exist(filename)) {
-								cover_available=1;
-								goto fixed_cover_7;
-							}
-
-							sprintf(filename, "%s/HDAVCTN/BDMT_O1.jpg", menu_list[game_rel].path);
-		//					if(!exist(filename)) sprintf(filename, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", menu_list[game_rel].path);
-							if(!exist(filename)) sprintf(filename, "%s", blankBG);
-fixed_cover_7:
-								offX=0; offY=0;
-								load_texture(text_FONT+1024*1024*6, filename, 320);
-								mip_texture( text_FONT+1024*1024*5, text_FONT+1024*1024*6, 320, 300, -2);
-						}
-
-					c_game=game_rel-game_rel2;
-
-					if(c_game<8)
-					{
-						c_y=62;
-						c_x= 118 + (int)(216.5f*c_game);
-					}
-
-					if(c_game>7 && c_game<16)
-					{
-						c_y=240;
-						c_x= 118 + (int)(216.5f*(c_game-8));
-					}
-
-					if(c_game>15 && c_game<24)
-					{
-						c_y=418;
-						c_x= 118 + (int)(216.5f*(c_game-16));
-					}
-
-					if(c_game>23 && c_game<32)
-					{
-						c_y=596;
-						c_x= 118 + (int)(216.5f*(c_game-24));
-					}
-
-					if(menu_list[game_rel].title[0]=='_' || menu_list[game_rel].split) gray_texture(text_FONT+1024*1024*5, 160, 160, 0);
-					if(cover_available==0)
-						put_texture( text_bmp, text_FONT+1024*1024*5, 160, 88, 160, c_x+7, c_y+62, 2, 0x0080ff80);
-					else
-						{
-							menu_list[game_rel].cover=1;
-
-//							put_texture_Galpha( text_bmp, 1920, 1080, text_FONT+1024*1024*1, 168, 174, 230, c_x+4, c_y-10, 0, 0);
-							put_texture_with_alpha( text_bmp, text_FONT+1024*1024*1, 216, 183, 216, c_x-28, c_y-16, 0, 0);
-							put_texture( text_bmp, text_FONT+1024*1024*5, 130, 150, 160, c_x+15, c_y, 0, 0x0080ff60);
-							if(glo_box==1) put_texture_with_alpha( text_bmp, text_FONT+1024*1024*7, 130, 150, 130, c_x+15, c_y, 0, 0);
-						}
-
-					}
-
-					counter_png=40;
-				} //mode7
-
 			}
 
 		}
@@ -26277,7 +26105,7 @@ skip_to_FM:
 		{
 			if(game_sel>=0 && (((mode_list==0) /*&& max_menu_list>0*/)) ) // && png_w!=0 && png_h!=0
 				{
-				if((cover_mode==1 || cover_mode==7) && max_menu_list>0)
+				if((cover_mode==1) && max_menu_list>0)
 				{
 					set_texture( text_bmp, 1920, 1080); //PIC1.PNG
 					display_img(0, 0, 1920, 1080, 1920, 1080, 0.0f, 1920, 1080);
