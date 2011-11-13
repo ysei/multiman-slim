@@ -19957,11 +19957,11 @@ u8 read_pad_info()
 	if(browse_column_active && cover_mode == MODE_XMMB) return read_pad_info_browse();
 	u8 to_return=0;
 	int skip_t=14;
-	if ( ( ( (new_pad & BUTTON_UP)) && (cover_mode!=4 && cover_mode!=6))) {
+	if ( ( ( (new_pad & BUTTON_UP)))) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 //		old_pad=0; new_pad=0;
 		counter_png=30;
-		if(cover_mode != MODE_XMMB && cover_mode!=4)
+		if(cover_mode != MODE_XMMB)
 		{
 			game_sel_last=game_sel;
 			game_sel-=skip_t;
@@ -19989,14 +19989,14 @@ u8 read_pad_info()
 		}
 		if(game_sel<0) {
 			game_sel=max_menu_list-1;	game_sel_last=game_sel;
-			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB && cover_mode!=4) {to_return=1; goto leave_for8;}}
+			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}}
 	}
 
 	if ( (((new_pad & BUTTON_DOWN)) && (cover_mode!=4 && cover_mode!=6))) {
 //		old_pad=0; new_pad=0;
 		c_opacity_delta=16;	dimc=0; dim=1;
 		counter_png=30;
-		if(cover_mode != MODE_XMMB && cover_mode!=4)
+		if(cover_mode != MODE_XMMB)
 		{
 			game_sel_last=game_sel;
 			game_sel+=skip_t;
@@ -20030,7 +20030,7 @@ u8 read_pad_info()
 
 		}
 		if(game_sel>=max_menu_list) {
-			game_sel=0; game_sel_last=0; counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB && cover_mode!=4) {to_return=1; goto leave_for8;}
+			game_sel=0; game_sel_last=0; counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB) {to_return=1; goto leave_for8;}
 			}
 
 	}
@@ -21458,7 +21458,7 @@ int main(int argc, char **argv)
 	sc36_path_patch=0;
 	//pad_motor(0,0);
 
-    payload = -1;  // 0->psgroove  1->hermes  2->PL3
+	payload = -1;  // 0->psgroove  1->hermes  2->PL3
 	payloadT[0]=0x20;
 
 	if(sys8_enable(0) > 0)
@@ -21728,7 +21728,6 @@ int main(int argc, char **argv)
 
 	game_last_page=-1;
 	last_selected=-1;
-	//use_depth=(cover_mode != MODE_XMMB);
     uint64_t nread;
     int dir_fd;
     CellFsDirent entryF;
@@ -21812,7 +21811,7 @@ start_of_loop:
 	if(dim_setting>0)
 		{
 			dimc++;
-			if( (dimc>(dim_setting*80) && cover_mode != MODE_FILEMAN) || ( (cover_mode == MODE_FILEMAN || cover_mode == MODE_XMMB) && dimc>(dim_setting*80*7)) ) {dimc=0; dim=1;c_opacity_delta=-1;}
+			if( (dimc>(dim_setting*80)) || (dimc>(dim_setting*80*7)) ) {dimc=0; dim=1;c_opacity_delta=-1;}
 		}
 	else
 		{	dimc=0; dim=0; c_opacity_delta=0;}
@@ -22046,8 +22045,6 @@ start_of_loop:
 					{
 
 						if(strstr (filename,"/dev_hdd")!=NULL && find_device==0){
-							//if(is_reloaded && (strstr(hdd_home_2,"/dev_usb")!=NULL || strstr(hdd_home_3,"/dev_usb")!=NULL || strstr(hdd_home_4,"/dev_usb")!=NULL || strstr(hdd_home_5,"/dev_usb")!=NULL) )
-							//	{max_menu_list=0; is_reloaded=0;}
 							fill_entries_from_device(filename, menu_list, &max_menu_list, (1<<find_device), 0);
 							if(strstr (hdd_home_2,"/dev_")!=NULL && exist(hdd_home_2)) fill_entries_from_device(hdd_home_2, menu_list, &max_menu_list, (1<<find_device), 2);
 							if(strstr (hdd_home_3,"/dev_")!=NULL && exist(hdd_home_3)) fill_entries_from_device(hdd_home_3, menu_list, &max_menu_list, (1<<find_device), 2);
@@ -22105,8 +22102,6 @@ start_of_loop:
 						dev_removed|=(1<<find_device);
 					}
 
-					if((cover_mode<3 || cover_mode > MODE_FILEMAN) && cover_mode != MODE_XMMB) draw_legend=1;
-
 					forcedevices &= ~ (1<<find_device);
 					fdevices_old&= ~ (1<<find_device);
 					fdevices_old|= fdevices & (1<<find_device);
@@ -22125,7 +22120,6 @@ start_of_loop:
 			xmb_icon_last_first=xmb[xmb_icon].first;
 		}
 		sort_entries(menu_list, &max_menu_list );
-		if(cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB && !first_launch) load_legend(text_legend, legend);
 
 		if(dev_removed && !dev_added)
 		{
@@ -22203,7 +22197,6 @@ start_of_loop:
 
 force_reload:
 	is_game_loading=0;
-	//use_depth=(cover_mode != MODE_XMMB);
 	if( (old_fi!=game_sel && game_sel>=0 && game_sel<max_menu_list && max_menu_list>0 && counter_png==0))
 	{
 		old_fi=game_sel;
@@ -22307,18 +22300,6 @@ switch_ntfs:
 		xmb_bg_counter=0;
 		c_opacity2=0xff;
 	 }
-
-	/*if ((old_pad & BUTTON_START) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_R1)))
-	{
-		if((new_pad & BUTTON_L1))
-			mp3_skip=force_mp3_offset-KB(128); //if(mp3_skip<0) mp3_skip=0;
-		else
-			mp3_skip=force_mp3_offset+KB(128);
-
-		main_mp3_th(force_mp3_file, mp3_skip);
-		new_pad=0;
-	 }*/
-
 
 	 if (((old_pad & BUTTON_SELECT) &&  (new_pad & BUTTON_CIRCLE)) && cover_mode != MODE_FILEMAN && (cover_mode != MODE_XMMB || (cover_mode == MODE_XMMB && (xmb_icon==6 || xmb_icon==7))) )
  	 {
@@ -22434,7 +22415,7 @@ rename_title:
 	}
 
 
-	 if ( (new_pad & BUTTON_R1) && (lock_display_mode==-1) ) {// && cover_mode != MODE_FILEMAN
+	 if (0) {// && cover_mode != MODE_FILEMAN
 next_for_FM:
 
 		c_opacity_delta=16;	dimc=0; dim=1;
@@ -22485,7 +22466,7 @@ open_file_manager:
 		}
 
 
-	 if ( ((new_pad & BUTTON_L1) || ((old_pad & BUTTON_SELECT) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_START) )) ) &&  (lock_display_mode==-1 || cover_mode == MODE_FILEMAN) ) {
+	 if (0) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 from_fm:
 		if(cover_mode == MODE_FILEMAN) {
@@ -22631,14 +22612,16 @@ go_ahead:
 		int seconds= (int) (time(NULL)-time_start);
 		int vflip=0;
 
-		while(1){
+		while(1)
+		{
 
-			if(abort_copy==2) sprintf(string1,"Aborted!  Time: %2.2i:%2.2i:%2.2i\n", seconds/3600, (seconds/60) % 60, seconds % 60);
+			if(abort_copy==2)
+				sprintf(string1,"Aborted!  Time: %2.2i:%2.2i:%2.2i\n", seconds/3600, (seconds/60) % 60, seconds % 60);
 			else
 				if(abort_copy==1)
-				sprintf(string1,"Folder contains over %i files. Time: %2.2i:%2.2i:%2.2i Vol: %1.2f GB+\n", file_counter, seconds/3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes)/(1024.0*1024.*1024.0));
+					sprintf(string1,"Folder contains over %i files. Time: %2.2i:%2.2i:%2.2i Vol: %1.2f GB+\n", file_counter, seconds/3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes)/(1024.0*1024.*1024.0));
 				else
-				sprintf(string1,"Files tested: %i Time: %2.2i:%2.2i:%2.2i Size: %1.2f GB\nActual size : %.f bytes", file_counter, seconds/3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes)/(1024.0*1024.*1024.0),(double) global_device_bytes);
+					sprintf(string1,"Files tested: %i Time: %2.2i:%2.2i:%2.2i Size: %1.2f GB\nActual size : %.f bytes", file_counter, seconds/3600, (seconds/60) % 60, seconds % 60, ((double) global_device_bytes)/(1024.0*1024.*1024.0),(double) global_device_bytes);
 
 
 			ClearSurface();
@@ -22646,18 +22629,18 @@ go_ahead:
 			cellDbgFontPrintf( 0.07f, 0.07f, 1.2f,0xc0c0c0c0,string1);
 
 			if(vflip & 32)
-			cellDbgFontPrintf( 0.5f-0.15f, 1.0f-0.07*2.0f, 1.2f, 0xffffffff, "Press [ ] to continue");
+				cellDbgFontPrintf( 0.5f-0.15f, 1.0f-0.07*2.0f, 1.2f, 0xffffffff, "Press [ ] to continue");
 			vflip++;
 
 			flip();
 			pad_read();
 			if (new_pad & BUTTON_SQUARE)
-				{
+			{
 				new_pad=0;
 				break;
-				}
-
 			}
+
+		}
 		}
 
 
@@ -24718,7 +24701,7 @@ check_from_start2:
 
 	}
 
-	if (new_pad & BUTTON_CROSS && game_sel>=0 && (((mode_list==0) && max_menu_list>0)) && strstr(menu_list[game_sel].path,"/pvd_usb")==NULL && ( (cover_mode != MODE_XMMB && cover_mode!=4) || ((cover_mode == MODE_XMMB) && ( (xmb_icon==6 && (xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 || xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && xmb[xmb_icon].size>1) || (xmb_icon==7  && xmb[xmb_icon].size) || ((xmb_icon==5 || xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2)))) )
+	if (new_pad & BUTTON_CROSS && game_sel>=0 && (((mode_list==0) && max_menu_list>0)) && strstr(menu_list[game_sel].path,"/pvd_usb")==NULL && ( (cover_mode != MODE_XMMB) || ((cover_mode == MODE_XMMB) && ( (xmb_icon==6 && (xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 || xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && xmb[xmb_icon].size>1) || (xmb_icon==7  && xmb[xmb_icon].size) || ((xmb_icon==5 || xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2)))) )
 	{
 
 		if((xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && (cover_mode == MODE_XMMB))
@@ -25590,7 +25573,7 @@ skip_to_FM:
 
 	if((new_pad & BUTTON_SQUARE) && cover_mode == MODE_XMMB) {egg=1-egg; use_drops=(egg==1);}
 
-	if ( ( ((new_pad & BUTTON_SQUARE) && cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB) || ((new_pad & BUTTON_TRIANGLE) && cover_mode == MODE_XMMB)) && game_sel<max_menu_list && max_menu_list>0 && (cover_mode != MODE_XMMB || (cover_mode == MODE_XMMB && ( (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 && xmb[xmb_icon].size>1) || (xmb_icon==5 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2) || (xmb_icon==7 && xmb[xmb_icon].size)))) ) {
+	if ( ( ((new_pad & BUTTON_TRIANGLE) && cover_mode == MODE_XMMB)) && game_sel<max_menu_list && max_menu_list>0 && (cover_mode != MODE_XMMB || (cover_mode == MODE_XMMB && ( (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 && xmb[xmb_icon].size>1) || (xmb_icon==5 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2) || (xmb_icon==7 && xmb[xmb_icon].size)))) ) {
 		new_pad=0;
 		int ret_f=open_submenu(text_bmp, &game_sel);
 		old_fi=-1;
@@ -25608,7 +25591,7 @@ skip_to_FM:
 		goto force_reload;
 	}
 
-	if ( ( ( (new_pad & BUTTON_CIRCLE) && cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB) || (new_pad & BUTTON_RED) ) && net_used_ignore())
+	if ( ((new_pad & BUTTON_RED) ) && net_used_ignore())
 	{
 		new_pad=0;
 		c_opacity_delta=16;	dimc=0; dim=1;
@@ -26065,7 +26048,6 @@ skip_to_FM:
 					{
 						draw_list( menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, game_sel_last, c_opacity);
 					}
-					else if(cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB) cellDbgFontPrintf( 0.08f, 0.1f, 1.0f, 0x80808080, "Insert Blu-ray game disc...\n\nPress [TRIANGLE] to access system menu.\nEdit options.ini if necessary!\n\nPress [SELECT]+[START] for File Manager mode.");
 				}
 			}
 		}
