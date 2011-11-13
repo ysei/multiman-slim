@@ -1047,6 +1047,8 @@ u32 forcedevices=0xffff;
 u8 fm_sel=0;
 u8 fm_sel_old=15;
 
+#define MODE_FILEMAN	5
+
 int game_sel=0;
 int game_sel_last=0;
 int cover_mode=8, initial_cover_mode=8, user_font=4, last_cover_mode=8;
@@ -1519,7 +1521,7 @@ void wait_dialog()
 		if(init_finished)
 		{
 			if(cover_mode==8) draw_whole_xmb(xmb_icon);//draw_xmb_bare(xmb_icon, 1, 0, 0);
-			else if(cover_mode==5) { ClearSurface(); draw_fileman();  flip();sys_timer_usleep(1668);}
+			else if(cover_mode == MODE_FILEMAN) { ClearSurface(); draw_fileman();  flip();sys_timer_usleep(1668);}
 			else if(cover_mode>=0 && cover_mode<3 || cover_mode==6 || cover_mode==7)
 				{
 					ClearSurface();
@@ -1799,7 +1801,7 @@ uint32_t old_info_k = 0;
 
 		padd = 0;
 		if(kdata.keycode[0]>0x2f && kdata.keycode[0]<0x37) pad_num=kdata.keycode[0]-0x30; //0-6 switch pad port
-		if(kdata.keycode[0]>0x8039 && kdata.keycode[0]<0x8040 && cover_mode!=5) //F1-F6 switch cover mode
+		if(kdata.keycode[0]>0x8039 && kdata.keycode[0]<0x8040 && cover_mode != MODE_FILEMAN) //F1-F6 switch cover mode
 		{
 			cover_mode=kdata.keycode[0]-0x803a; old_fi=0;
 			old_fi=-1;
@@ -1807,7 +1809,7 @@ uint32_t old_info_k = 0;
 			goto pad_out;
 		}
 
-		if(cover_mode==5)
+		if(cover_mode == MODE_FILEMAN)
 		{
 			if(kdata.keycode[0]==0x8049 || kdata.keycode[0]==0xC049) padd = (1<<11); //INS= R1
 			else if(kdata.keycode[0]==0x803b) padd = padd | (1<<14)|(1<<0); //F2= select+x
@@ -1908,7 +1910,7 @@ read_mouse:
 			if(Data.wheel<0)	padd = padd | (1<<5);
 		}
 
-		if(cover_mode!=5) {
+		if(cover_mode != MODE_FILEMAN) {
 			if(Data.x_axis>10)	padd = padd | (1<<5);
 			if(Data.x_axis<-10)	padd = padd | (1<<7);
 
@@ -2022,7 +2024,7 @@ pad_ok:
 		else if(databuf.button[25]==0x39) padd|=BUTTON_PAUSE;
 	}
 
-	if(cover_mode!=5 && !use_analog)
+	if(cover_mode != MODE_FILEMAN && !use_analog)
 	{
 		if(padLYstick<2) padd=padd | BUTTON_UP;   if(padLYstick>253) padd=padd | BUTTON_DOWN;
 		if(padLXstick<2) padd=padd | BUTTON_LEFT; if(padLXstick>253) padd=padd | BUTTON_RIGHT;
@@ -7317,7 +7319,7 @@ void flush_ttf(uint8_t *buffer, uint32_t _V_WIDTH, uint32_t _V_HEIGHT)
 
 					}
 
-					if(cover_mode!=8 && cover_mode!=5) Fonts_RenderPropText( cf, surf, (int)(x*surfW)+1, (int)(y*surfH)+1, utf8Str0, scale, scaley, slant, step, 0xff000000 );
+					if(cover_mode!=8 && cover_mode != MODE_FILEMAN) Fonts_RenderPropText( cf, surf, (int)(x*surfW)+1, (int)(y*surfH)+1, utf8Str0, scale, scaley, slant, step, 0xff000000 );
 					if(cover_mode==8) Fonts_RenderPropText( cf, surf, (int)(x*surfW)+2, (int)(y*surfH)+2, utf8Str0, scale, scaley, slant, step, 0x10101010 );
 					// && cover_mode!=8
 					Fonts_RenderPropText( cf, surf, (int)(x*surfW), (int)(y*surfH), utf8Str0, scale, scaley, slant, step, color );//(color & 0x00ffffff)
@@ -15457,7 +15459,7 @@ if ( fp != NULL )
 		if(strstr (line,"fullpng=3")!=NULL) cover_mode=3;
 		if(strstr (line,"fullpng=4")!=NULL) cover_mode=4;
 		if(strstr (line,"fullpng=6")!=NULL) cover_mode=6;
-		if(strstr (line,"fullpng=5")!=NULL) cover_mode=5;
+		if(strstr (line,"fullpng=5")!=NULL) cover_mode = MODE_FILEMAN;
 		if(strstr (line,"fullpng=7")!=NULL) cover_mode=7;
 		if(strstr (line,"fullpng=8")!=NULL) cover_mode=8;
 
@@ -20967,7 +20969,7 @@ void draw_xmb_legend(const int _xmb_icon)
 void draw_xmb_info()
 {
 	if( c_opacity2<=0x10
-		|| (cover_mode!=5 && (xmb_bg_counter>30 || xmb_slide_step!=0 || xmb_slide_step_y!=0 || xmb_popup==0))
+		|| (cover_mode != MODE_FILEMAN && (xmb_bg_counter>30 || xmb_slide_step!=0 || xmb_slide_step_y!=0 || xmb_popup==0))
 		|| !mm_is_playing || is_theme_playing
 		|| !(multiStreamStarted==1 && current_mp3!=0 && max_mp3>1)) return;
 
@@ -20995,7 +20997,7 @@ void draw_xmb_info()
 	}
 	if(c_opacity2<=0x80 && c_opacity2) change_opacity(text_INFO, -95, 106400);
 	set_texture(text_INFO, 380, 70);
-	display_img( (cover_mode==5 ? 1540 : 100), (cover_mode==5 ? 880 : 930), 380, 70, 380, 70, -0.1f, 380, 70);
+	display_img( (cover_mode == MODE_FILEMAN ? 1540 : 100), (cover_mode == MODE_FILEMAN ? 880 : 930), 380, 70, 380, 70, -0.1f, 380, 70);
 }
 
 void redraw_column_texts(int _xmb_icon)
@@ -22924,7 +22926,7 @@ int main(int argc, char **argv)
 
 	if(cover_mode==3) load_texture(text_FONT, userBG, 1920);
 
-	if(cover_mode<3 || cover_mode>5)
+	if(cover_mode<3 || cover_mode > MODE_FILEMAN)
 		draw_legend=1;
 	else
 		draw_legend=0;
@@ -23097,7 +23099,7 @@ start_of_loop:
 	if(dim_setting>0)
 		{
 			dimc++;
-			if( (dimc>(dim_setting*80) && cover_mode!=5) || ( (cover_mode==5 || cover_mode==8) && dimc>(dim_setting*80*7)) ) {dimc=0; dim=1;c_opacity_delta=-1;}
+			if( (dimc>(dim_setting*80) && cover_mode != MODE_FILEMAN) || ( (cover_mode == MODE_FILEMAN || cover_mode==8) && dimc>(dim_setting*80*7)) ) {dimc=0; dim=1;c_opacity_delta=-1;}
 		}
 	else
 		{	dimc=0; dim=0; c_opacity_delta=0;}
@@ -23390,7 +23392,7 @@ start_of_loop:
 						dev_removed|=(1<<find_device);
 					}
 
-					if((cover_mode<3 || cover_mode>5) && cover_mode!=8) draw_legend=1;
+					if((cover_mode<3 || cover_mode > MODE_FILEMAN) && cover_mode!=8) draw_legend=1;
 
 					forcedevices &= ~ (1<<find_device);
 					fdevices_old&= ~ (1<<find_device);
@@ -23410,7 +23412,7 @@ start_of_loop:
 			xmb_icon_last_first=xmb[xmb_icon].first;
 		}
 		sort_entries(menu_list, &max_menu_list );
-		if(cover_mode!=5 && cover_mode!=8 && !first_launch) load_legend(text_legend, legend);
+		if(cover_mode != MODE_FILEMAN && cover_mode!=8 && !first_launch) load_legend(text_legend, legend);
 
 		if(dev_removed && !dev_added)
 		{
@@ -23461,7 +23463,7 @@ start_of_loop:
 
 		if(cover_mode==3) load_texture(text_FONT, userBG, 1920);
 		first_launch=0;
-		if(cover_mode!=5) load_legend(text_legend, legend); else set_fm_stripes();
+		if(cover_mode != MODE_FILEMAN) load_legend(text_legend, legend); else set_fm_stripes();
 
 		parse_last_state();
 
@@ -24357,7 +24359,7 @@ switch_ntfs:
 	 }*/
 
 
-	 if (((old_pad & BUTTON_SELECT) &&  (new_pad & BUTTON_CIRCLE)) && cover_mode!=5 && (cover_mode!=8 || (cover_mode==8 && (xmb_icon==6 || xmb_icon==7))) )
+	 if (((old_pad & BUTTON_SELECT) &&  (new_pad & BUTTON_CIRCLE)) && cover_mode != MODE_FILEMAN && (cover_mode!=8 || (cover_mode==8 && (xmb_icon==6 || xmb_icon==7))) )
  	 {
 rename_title:
 		 new_pad=0;
@@ -24472,22 +24474,22 @@ rename_title:
 	}
 
 
-	 if ( (new_pad & BUTTON_R1) && (lock_display_mode==-1) ) {// && cover_mode!=5
+	 if ( (new_pad & BUTTON_R1) && (lock_display_mode==-1) ) {// && cover_mode != MODE_FILEMAN
 next_for_FM:
 
 		c_opacity_delta=16;	dimc=0; dim=1;
 
 		if(cover_mode==3) {slide_screen_left(text_FONT); load_texture(text_bmpUPSR, playBGR, 1920);} else
-		if(cover_mode==4 || cover_mode==5) slide_screen_left(text_bmpUPSR); else slide_screen_left(text_bmp);
+		if(cover_mode==4 || cover_mode == MODE_FILEMAN) slide_screen_left(text_bmpUPSR); else slide_screen_left(text_bmp);
 		last_cover_mode=cover_mode;
 
-		if(cover_mode==5)
+		if(cover_mode == MODE_FILEMAN)
 		{
 			load_texture(text_bmpUPSR, playBGR, 1920);
 			if(lock_display_mode!=-1) cover_mode=lock_display_mode-1;
 
 		}
-		cover_mode++; if(cover_mode==5) cover_mode++;
+		cover_mode++; if(cover_mode == MODE_FILEMAN) cover_mode++;
 		c_opacity=0xff; c_opacity2=0xff;
 		game_last_page=-1;
 		game_sel_last=game_sel;
@@ -24500,8 +24502,8 @@ next_for_FM:
 		if(cover_mode>8) {cover_mode=0;}
 
 		if(cover_mode==3) load_texture(text_FONT, userBG, 1920);
-		if(cover_mode==5) set_fm_stripes();
-		if(cover_mode<3 || cover_mode>5)  load_legend(text_legend, legend);//&& last_cover_mode>2)
+		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
+		if(cover_mode<3 || cover_mode > MODE_FILEMAN)  load_legend(text_legend, legend);//&& last_cover_mode>2)
 		if(cover_mode==8 || cover_mode==4) {xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );}
 		old_fi=-1;
 		counter_png=0;
@@ -24510,14 +24512,14 @@ next_for_FM:
 
 	    if ( (old_pad & BUTTON_SELECT) && (new_pad & BUTTON_START))
 		{
-			if(cover_mode==5) { new_pad=0; goto from_fm; }
+			if(cover_mode == MODE_FILEMAN) { new_pad=0; goto from_fm; }
 open_file_manager:
 
 			state_draw=1; c_opacity=0xff; c_opacity2=0xff;
 			if(!lock_fileman)
 			{
-				if(cover_mode!=5) last_cover_mode=cover_mode;
-				cover_mode=5;
+				if(cover_mode != MODE_FILEMAN) last_cover_mode=cover_mode;
+				cover_mode = MODE_FILEMAN;
 				counter_png=0;
 				state_read=1;
 				state_draw=1;
@@ -24530,12 +24532,12 @@ open_file_manager:
 		}
 
 
-	 if ( ((new_pad & BUTTON_L1) || ((old_pad & BUTTON_SELECT) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_START) )) ) &&  (lock_display_mode==-1 || cover_mode==5) ) {
+	 if ( ((new_pad & BUTTON_L1) || ((old_pad & BUTTON_SELECT) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_START) )) ) &&  (lock_display_mode==-1 || cover_mode == MODE_FILEMAN) ) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 		if(cover_mode==3) slide_screen_right(text_FONT); else
-		if(cover_mode==4 || cover_mode==5) slide_screen_right(text_bmpUPSR); else slide_screen_right(text_bmp);
+		if(cover_mode==4 || cover_mode == MODE_FILEMAN) slide_screen_right(text_bmpUPSR); else slide_screen_right(text_bmp);
 from_fm:
-		if(cover_mode==5 || cover_mode==6) {
+		if(cover_mode == MODE_FILEMAN || cover_mode==6) {
 			load_texture(text_bmpUPSR, playBGR, 1920);
 			load_legend(text_legend, legend);
 			sprintf(auraBG, "%s/AUR5.JPG", app_usrdir);
@@ -24543,7 +24545,7 @@ from_fm:
 			game_last_page=-1;
 			if((old_pad & BUTTON_SELECT))
 			{
-				if(last_cover_mode==5)
+				if(last_cover_mode == MODE_FILEMAN)
 					cover_mode--;
 				else
 					cover_mode=last_cover_mode;
@@ -24561,7 +24563,7 @@ from_fm:
 			cover_mode--;
 			game_last_page=-1;
 		 }
-		 if(cover_mode==5) cover_mode--;
+		 if(cover_mode == MODE_FILEMAN) cover_mode--;
 		if(lock_display_mode!=-1) cover_mode=lock_display_mode;
 		game_sel_last=game_sel;
 		state_read=1;
@@ -24573,8 +24575,8 @@ from_fm:
 		if(cover_mode<0) {cover_mode=8;}
 
 		if(cover_mode==3) load_texture(text_FONT, userBG, 1920);
-		if(cover_mode==5) set_fm_stripes();
-		if((cover_mode<3 || cover_mode>5) && last_cover_mode>2)  load_legend(text_legend, legend);
+		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
+		if((cover_mode<3 || cover_mode > MODE_FILEMAN) && last_cover_mode>2)  load_legend(text_legend, legend);
 		if(cover_mode==8 || cover_mode==4) {xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );}
 		old_fi=-1;
 		counter_png=0;
@@ -24592,7 +24594,7 @@ from_fm:
 
 
 	if(force_update_check==1) {check_for_update(); force_update_check=0;}
-	if(cover_mode==5) {goto skip_to_FM;}
+	if(cover_mode == MODE_FILEMAN) {goto skip_to_FM;}
 
 //skip_find_device:
 	is_game_loading=0;
@@ -24669,7 +24671,7 @@ update_title:
 			old_fi=-1;
 
 			if(ret_f==1) force_update_check=1;
-			if(ret_f==2) {	if(!lock_fileman) {last_cover_mode=cover_mode; cover_mode=5; new_pad=0; goto open_file_manager;}}
+			if(ret_f==2) {	if(!lock_fileman) {last_cover_mode=cover_mode; cover_mode = MODE_FILEMAN; new_pad=0; goto open_file_manager;}}
 			if(ret_f==3) goto switch_ntfs;
 //			if(ret_f==4) {screenshot}
 
@@ -26122,7 +26124,7 @@ cancel_theme_exit:
 		if(xmb_icon==1) //home
 		{
 			if(xmb[1].first==0) force_update_check=1;
-			if(xmb[1].first==1) { if(!lock_fileman) {last_cover_mode=cover_mode; cover_mode=5; new_pad=0; goto open_file_manager;}}
+			if(xmb[1].first==1) { if(!lock_fileman) {last_cover_mode=cover_mode; cover_mode = MODE_FILEMAN; new_pad=0; goto open_file_manager;}}
 			if(xmb[1].first==2) goto refresh_list_0;
 			if(xmb[1].first==3) goto switch_ntfs;
 			if(xmb[1].first==4) {screen_saver(); goto start_of_loop; }
@@ -27766,7 +27768,7 @@ skip_to_FM:
 
 	if((new_pad & BUTTON_SQUARE) && cover_mode==8) {egg=1-egg; use_drops=(egg==1);}
 
-	if ( ( ((new_pad & BUTTON_SQUARE) && cover_mode!=5 && cover_mode!=8) || ((new_pad & BUTTON_TRIANGLE) && cover_mode==8)) && game_sel<max_menu_list && max_menu_list>0 && (cover_mode!=8 || (cover_mode==8 && ( (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 && xmb[xmb_icon].size>1) || (xmb_icon==5 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2) || (xmb_icon==7 && xmb[xmb_icon].size)))) ) {
+	if ( ( ((new_pad & BUTTON_SQUARE) && cover_mode != MODE_FILEMAN && cover_mode!=8) || ((new_pad & BUTTON_TRIANGLE) && cover_mode==8)) && game_sel<max_menu_list && max_menu_list>0 && (cover_mode!=8 || (cover_mode==8 && ( (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 && xmb[xmb_icon].size>1) || (xmb_icon==5 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2) || (xmb_icon==7 && xmb[xmb_icon].size)))) ) {
 		new_pad=0;
 		if(cover_mode==4) {	sprintf(auraBG, "%s/AUR5.JPG", app_usrdir); load_texture(text_bmp, auraBG, 1920);}
 		int ret_f=open_submenu(text_bmp, &game_sel);
@@ -27786,7 +27788,7 @@ skip_to_FM:
 		goto force_reload;
 	}
 
-	if ( ( ( (new_pad & BUTTON_CIRCLE) && cover_mode!=5 && cover_mode!=8) || (new_pad & BUTTON_RED) ) && net_used_ignore())
+	if ( ( ( (new_pad & BUTTON_CIRCLE) && cover_mode != MODE_FILEMAN && cover_mode!=8) || (new_pad & BUTTON_RED) ) && net_used_ignore())
 	{
 		new_pad=0;
 		c_opacity_delta=16;	dimc=0; dim=1;
@@ -27807,7 +27809,7 @@ skip_to_FM:
 		if(cover_mode==8) draw_whole_xmb(0);
 
 		//mouse pointer
-		if(cover_mode==5)
+		if(cover_mode == MODE_FILEMAN)
 		{
 			mouseX+=mouseXD; mouseY+=mouseYD;
 			if(mouseX>0.995f) {mouseX=0.995f;mouseXD=0.0f;} if(mouseX<0.0f) {mouseX=0.0f;mouseXD=0.0f;}
@@ -27890,7 +27892,7 @@ skip_to_FM:
 					draw_coverflow_icons(xmb, xmb_icon, xmb_slide_y);
 				}
 
-				if(cover_mode==5) {
+				if(cover_mode == MODE_FILEMAN) {
 
 
 		if ( (new_pad & BUTTON_LEFT ) && mouseX>=0.026f ) {mouseX-=0.026f;}
@@ -28307,7 +28309,7 @@ skip_to_FM:
 
 		cellDbgFontPrintf( 0.83f, 0.895f, 0.7f ,COL_HEXVIEW, "%s\n %s:%02d:%02d ", string1, tmhour(timeinfo->tm_hour), timeinfo->tm_min, timeinfo->tm_sec);
 
-			} //end cover_mode==5 fileman
+			} //end cover_mode == MODE_FILEMAN fileman
 		}
 
 
@@ -28318,7 +28320,7 @@ skip_to_FM:
 				if(cover_mode<3)
 					cellDbgFontPrintf( 0.78f, 0.03f, 0.7f,0x90909080,"  USB patch");
 				else
-					if(cover_mode!=5)
+					if(cover_mode != MODE_FILEMAN)
 						cellDbgFontPrintf( 0.85f, 0.03f, 0.7f,0x90909080," USB patch");
 			}
 
@@ -28344,13 +28346,13 @@ skip_to_FM:
 								draw_list( menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, game_sel_last, c_opacity);
 						}
 					}
-					else if(cover_mode!=5 && cover_mode!=8) cellDbgFontPrintf( 0.08f, 0.1f, 1.0f, 0x80808080, "Insert Blu-ray game disc...\n\nPress [TRIANGLE] to access system menu.\nEdit options.ini if necessary!\n\nPress [SELECT]+[START] for File Manager mode.");
+					else if(cover_mode != MODE_FILEMAN && cover_mode!=8) cellDbgFontPrintf( 0.08f, 0.1f, 1.0f, 0x80808080, "Insert Blu-ray game disc...\n\nPress [TRIANGLE] to access system menu.\nEdit options.ini if necessary!\n\nPress [SELECT]+[START] for File Manager mode.");
 				}
 			}
 		}
 
 		cellDbgFontDrawGcm();
-		if(cover_mode==5) draw_mouse_pointer(0);
+		if(cover_mode == MODE_FILEMAN) draw_mouse_pointer(0);
 
 		if(!first_launch) flip();
 	} //end of main loop
