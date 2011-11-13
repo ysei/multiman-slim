@@ -6705,7 +6705,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						else
 							sprintf(ansi, "%s", menu[i].title);
 
-						if( (_cover_mode==1 || _cover_mode==4 || _cover_mode==7)) { ansi[128]=0; }
+						if( (_cover_mode==1 ||_cover_mode==7)) { ansi[128]=0; }
 						sprintf(str, "%s%s", ansi, is_split );
 					}
 					else
@@ -19877,13 +19877,6 @@ void init_xmb_icons(t_menu_list *list, int max, int sel)
 			}
 		}
 
-
-		if(cover_mode==4)
-		{
-			if(!xmb[6].first && xmb[6].size) xmb[6].first=1;
-			load_coverflow_legend();
-			load_legend(text_legend, legend);
-		}
 		is_game_loading=0;
 }
 
@@ -20220,7 +20213,7 @@ u8 read_pad_info()
 	if(browse_column_active && cover_mode == MODE_XMMB) return read_pad_info_browse();
 	u8 to_return=0;
 	int skip_t=14;
-	if ( ( ( (new_pad & BUTTON_UP) || ( (new_pad & BUTTON_L2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_LEFT) && (cover_mode==4 || cover_mode==6)) ) {
+	if ( ( ( (new_pad & BUTTON_UP) || ( (new_pad & BUTTON_L2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_LEFT) && (cover_mode==6)) ) {
 		c_opacity_delta=16;	dimc=0; dim=1;
 //		old_pad=0; new_pad=0;
 		counter_png=30;
@@ -20234,12 +20227,12 @@ u8 read_pad_info()
 			game_sel-=skip_t;
 		}
 		new_pad=0;
-		if((cover_mode == MODE_XMMB || cover_mode==4) && xmb[xmb_icon].size>1)
+		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
 		{
 			xmb_legend_drawn=0;
 			xmb_info_drawn=0;
 			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[xmb_icon].first==0) {xmb[xmb_icon].first=xmb[xmb_icon].size-1; xmb_slide_y=0; xmb_slide_step_y=0; if(cover_mode==4) load_coverflow_legend();}
+			if(xmb[xmb_icon].first==0) {xmb[xmb_icon].first=xmb[xmb_icon].size-1; xmb_slide_y=0; xmb_slide_step_y=0; }
 			else
 			{
 				if(xmb_slide_step_y!=0)
@@ -20264,7 +20257,7 @@ u8 read_pad_info()
 		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
-	if ( (((new_pad & BUTTON_DOWN) || ( (new_pad & BUTTON_R2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_RIGHT) && (cover_mode==4 || cover_mode==6)) ) {
+	if ( (((new_pad & BUTTON_DOWN) || ( (new_pad & BUTTON_R2) && (cover_mode==1 || cover_mode==7))) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_RIGHT) && (cover_mode==6)) ) {
 //		old_pad=0; new_pad=0;
 		c_opacity_delta=16;	dimc=0; dim=1;
 		counter_png=30;
@@ -20283,12 +20276,12 @@ u8 read_pad_info()
 			}
 		}
 		new_pad=0;
-		if((cover_mode == MODE_XMMB || cover_mode==4) && xmb[xmb_icon].size>1)
+		if((cover_mode == MODE_XMMB) && xmb[xmb_icon].size>1)
 		{
 			xmb_legend_drawn=0;
 			xmb_info_drawn=0;
 			xmb_bg_show=0; xmb_bg_counter=200;
-			if(xmb[xmb_icon].first==xmb[xmb_icon].size-1) {xmb[xmb_icon].first=0; xmb_slide_y=0; xmb_slide_step_y=0;if(cover_mode==4) load_coverflow_legend();}
+			if(xmb[xmb_icon].first==xmb[xmb_icon].size-1) {xmb[xmb_icon].first=0; xmb_slide_y=0; xmb_slide_step_y=0;}
 			else
 			{
 				if(xmb_slide_step_y!=0)
@@ -20296,7 +20289,6 @@ u8 read_pad_info()
 					if(xmb_slide_y >0) { if(xmb[xmb_icon].first>0) xmb[xmb_icon].first-=repeat_counter3; xmb_slide_y=0;}
 					if(xmb_slide_y <0) { if(xmb[xmb_icon].first<xmb[xmb_icon].size-repeat_counter3) xmb[xmb_icon].first+=repeat_counter3; xmb_slide_y=0;}
 					if(xmb[xmb_icon].first>=xmb[xmb_icon].size-2) {repeat_counter1=120; repeat_counter2=repeat_key_delay;repeat_counter3=1;repeat_counter3_inc=0.f;}
-					if(cover_mode==4) load_coverflow_legend();
 				}
 				//else
 					xmb_slide_step_y=-10;
@@ -20317,7 +20309,7 @@ u8 read_pad_info()
 		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
-	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_UP) && (cover_mode==4 || cover_mode==6)) ) {
+	if ( ((new_pad & BUTTON_LEFT) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_UP) && (cover_mode==6)) ) {
 //		old_pad=0; new_pad=0;
 		xmb_legend_drawn=0;
 		xmb_info_drawn=0;
@@ -20349,7 +20341,7 @@ u8 read_pad_info()
 		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
 
-	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_DOWN) && (cover_mode==4 || cover_mode==6)) ) {
+	if ( ((new_pad & BUTTON_RIGHT) && (cover_mode!=4 && cover_mode!=6)) || ((new_pad & BUTTON_DOWN) && (cover_mode==6)) ) {
 //		old_pad=0; new_pad=0;
 		xmb_legend_drawn=0;
 		xmb_info_drawn=0;
@@ -22436,7 +22428,7 @@ start_of_loop:
 			reset_xmb_checked();
 			xmb[6].init=0; xmb[7].init=0;
 			//if(!first_launch)
-				if(cover_mode == MODE_XMMB || cover_mode==4) {init_xmb_icons(menu_list, max_menu_list, game_sel );}
+				if(cover_mode == MODE_XMMB) {init_xmb_icons(menu_list, max_menu_list, game_sel );}
 		}
 
 		if(dev_added)
@@ -22445,7 +22437,7 @@ start_of_loop:
 			{
 				reset_xmb(1);
 				if(!first_launch)
-					if(cover_mode == MODE_XMMB || cover_mode==4) {init_xmb_icons(menu_list, max_menu_list, game_sel );}
+					if(cover_mode == MODE_XMMB) {init_xmb_icons(menu_list, max_menu_list, game_sel );}
 			}
 			else
 			{
@@ -22453,7 +22445,7 @@ start_of_loop:
 				xmb[7].init=0;
 			}
 		}
-		if( ((!dev_added && !dev_removed) && (cover_mode == MODE_XMMB || cover_mode==4)) )
+		if( ((!dev_added && !dev_removed) && (cover_mode == MODE_XMMB)) )
 		{
 			xmb[6].init=0; xmb[7].init=0;
 
@@ -22483,8 +22475,7 @@ start_of_loop:
 
 		parse_last_state();
 
-		if(cover_mode == MODE_XMMB || cover_mode==4) {
-			if(cover_mode==4) xmb[6].init=0;
+		if(cover_mode == MODE_XMMB) {
 			init_xmb_icons(menu_list, max_menu_list, game_sel );
 			if(xmb_icon_last!=6)
 			{
@@ -22497,7 +22488,6 @@ start_of_loop:
 			}
 			else
 			if(xmb_icon_last_first<xmb[xmb_icon].size) { xmb[xmb_icon].first=xmb_icon_last_first; xmb_icon_last_first=0; xmb_icon_last=0; }
-			if(cover_mode==4) load_coverflow_legend();
 		}
 	}
 
@@ -23237,7 +23227,9 @@ next_for_FM:
 
 		c_opacity_delta=16;	dimc=0; dim=1;
 
-		if(cover_mode==4 || cover_mode == MODE_FILEMAN) slide_screen_left(text_bmpUPSR); else slide_screen_left(text_bmp);
+		if(cover_mode == MODE_FILEMAN)
+			slide_screen_left(text_bmpUPSR);
+		else slide_screen_left(text_bmp);
 		last_cover_mode=cover_mode;
 
 		if(cover_mode == MODE_FILEMAN)
@@ -23260,7 +23252,10 @@ next_for_FM:
 
 		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
 		if(cover_mode<3 || cover_mode > MODE_FILEMAN)  load_legend(text_legend, legend);//&& last_cover_mode>2)
-		if(cover_mode == MODE_XMMB || cover_mode==4) {xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );}
+		if(cover_mode == MODE_XMMB)
+		{
+			xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );
+		}
 		old_fi=-1;
 		counter_png=0;
 		goto force_reload;
@@ -23290,7 +23285,10 @@ open_file_manager:
 
 	 if ( ((new_pad & BUTTON_L1) || ((old_pad & BUTTON_SELECT) &&  ( (new_pad & BUTTON_L1) || (new_pad & BUTTON_START) )) ) &&  (lock_display_mode==-1 || cover_mode == MODE_FILEMAN) ) {
 		c_opacity_delta=16;	dimc=0; dim=1;
-		if(cover_mode==4 || cover_mode == MODE_FILEMAN) slide_screen_right(text_bmpUPSR); else slide_screen_right(text_bmp);
+		if(cover_mode == MODE_FILEMAN)
+			slide_screen_right(text_bmpUPSR);
+		else
+			slide_screen_right(text_bmp);
 from_fm:
 		if(cover_mode == MODE_FILEMAN || cover_mode==6) {
 			load_texture(text_bmpUPSR, playBGR, 1920);
@@ -23331,7 +23329,10 @@ from_fm:
 
 		if(cover_mode == MODE_FILEMAN) set_fm_stripes();
 		if((cover_mode<3 || cover_mode > MODE_FILEMAN) && last_cover_mode>2)  load_legend(text_legend, legend);
-		if(cover_mode == MODE_XMMB || cover_mode==4) {xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );}
+		if(cover_mode == MODE_XMMB)
+		{
+			xmb[6].init=0; xmb[7].init=0; init_xmb_icons(menu_list, max_menu_list, game_sel );
+		}
 		old_fi=-1;
 		counter_png=0;
 		goto force_reload;
@@ -24715,12 +24716,9 @@ overwrite_cancel_bdvd:
 
 
 	if (
-		((new_pad & BUTTON_CROSS) && (cover_mode == MODE_XMMB || cover_mode==4) &&
+		((new_pad & BUTTON_CROSS) && (cover_mode == MODE_XMMB) &&
 		(xmb_icon!=6 || (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==6)))
 
-		/*||
-		((new_pad & BUTTON_CIRCLE) && (cover_mode == MODE_XMMB || cover_mode==4) &&
-		(xmb_icon==2 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==7))*/
 		)
 	{
 		while(xmb_slide || xmb_slide_y){draw_whole_xmb(xmb_icon);}
@@ -25539,10 +25537,10 @@ check_from_start2:
 
 	}
 
-	if (new_pad & BUTTON_CROSS && game_sel>=0 && (((mode_list==0) && max_menu_list>0)) && strstr(menu_list[game_sel].path,"/pvd_usb")==NULL && ( (cover_mode != MODE_XMMB && cover_mode!=4) || ((cover_mode == MODE_XMMB || cover_mode==4) && ( (xmb_icon==6 && (xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 || xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && xmb[xmb_icon].size>1) || (xmb_icon==7  && xmb[xmb_icon].size) || ((xmb_icon==5 || xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2)))) )
+	if (new_pad & BUTTON_CROSS && game_sel>=0 && (((mode_list==0) && max_menu_list>0)) && strstr(menu_list[game_sel].path,"/pvd_usb")==NULL && ( (cover_mode != MODE_XMMB && cover_mode!=4) || ((cover_mode == MODE_XMMB) && ( (xmb_icon==6 && (xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 || xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && xmb[xmb_icon].size>1) || (xmb_icon==7  && xmb[xmb_icon].size) || ((xmb_icon==5 || xmb_icon==6) && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2)))) )
 	{
 
-		if((xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && (cover_mode == MODE_XMMB || cover_mode==4))
+		if((xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==36) && (cover_mode == MODE_XMMB))
 		{
 			if(net_used_ignore())
 			{
@@ -26427,11 +26425,10 @@ skip_to_FM:
 
 	if ( ( ((new_pad & BUTTON_SQUARE) && cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB) || ((new_pad & BUTTON_TRIANGLE) && cover_mode == MODE_XMMB)) && game_sel<max_menu_list && max_menu_list>0 && (cover_mode != MODE_XMMB || (cover_mode == MODE_XMMB && ( (xmb_icon==6 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==1 && xmb[xmb_icon].size>1) || (xmb_icon==5 && xmb[xmb_icon].member[xmb[xmb_icon].first].type==2) || (xmb_icon==7 && xmb[xmb_icon].size)))) ) {
 		new_pad=0;
-		if(cover_mode==4) {	sprintf(auraBG, "%s/AUR5.JPG", app_usrdir); load_texture(text_bmp, auraBG, 1920);}
 		int ret_f=open_submenu(text_bmp, &game_sel);
 		old_fi=-1;
 		if(ret_f) {slide_screen_left(text_FONT);memset(text_bmp, 0, FB(1));}
-		if(cover_mode == MODE_XMMB || cover_mode==4) { {xmb[6].init=0; xmb[7].init=0;}init_xmb_icons(menu_list, max_menu_list, game_sel );}
+		if(cover_mode == MODE_XMMB) { {xmb[6].init=0; xmb[7].init=0;}init_xmb_icons(menu_list, max_menu_list, game_sel );}
 
 		if(ret_f==1 && disable_options!=2 && disable_options!=3) goto copy_title;
 		if(ret_f==2 && disable_options!=1 && disable_options!=3) goto delete_title;
