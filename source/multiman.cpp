@@ -1241,44 +1241,44 @@ xmbopt __attribute__((aligned(8)));
 #define MAX_XMB_MEMBERS 2048
 typedef struct __xmbmem
 {
-	u8		type;	// 0 Device/Folder
-					// 1 PS3 Game				(structure)
-					// 2 AVCHD/Blu-ray Video	(structure) (from Game List)
-					// 3 Showtime Video			(file)
-					// 4 Music
-					// 5 Image
-					// 6 Function
-					// 7 Setting
-					// 8 SNES ROM
-					// 9 FCEU ROM
-					// 10 VBA ROM
-					// 11 GEN ROM
-					// 12 FBA ROM
-					// 13 PSX Disc Image
-					// 14 PS2 Disc Image
-					// 15 PSP Game
-					// 32 PS3 ISO
-					// 33 DVD ISO
-					// 34 BD ISO
-					// 35 PS2 DISC
-					// 36 PS1 DISC
+	u8	type;	// 0 Device/Folder
+			// 1 PS3 Game			(structure)
+			// 2 AVCHD/Blu-ray Video	(structure) (from Game List)
+			// 3 Showtime Video		(file)
+			// 4 Music
+			// 5 Image
+			// 6 Function
+			// 7 Setting
+			// 8 SNES ROM
+			// 9 FCEU ROM
+			// 10 VBA ROM
+			// 11 GEN ROM
+			// 12 FBA ROM
+			// 13 PSX Disc Image
+			// 14 PS2 Disc Image
+			// 15 PSP Game
+			// 32 PS3 ISO
+			// 33 DVD ISO
+			// 34 BD ISO
+			// 35 PS2 DISC
+			// 36 PS1 DISC
 
-	u8		status; // 0 Pending, 1 Loading, 2 Loaded
+	u8	status; // 0 Pending, 1 Loading, 2 Loaded
 	bool	is_checked;
-	int		game_id; //pointer to menu_list[id]
-	u8		game_split;
-	u32		game_user_flags;
+	int	game_id; //pointer to menu_list[id]
+	u8	game_split;
+	u32	game_user_flags;
 	char	name[192];
 	char	subname[128];
-	u8		option_size;
-	u8		option_selected;
+	u8	option_size;
+	u8	option_selected;
 	char	optionini[20];
 	xmbopt	option[MAX_XMB_OPTIONS];
-	int		data; //index in pointer array to text image stripe (xmbtexts) xmb_txt_buf
-	int		icon_buf;
-	u8		*icon; //pointer to icon image
-	u16		iconw;
-	u16		iconh;
+	int	data; //index in pointer array to text image stripe (xmbtexts) xmb_txt_buf
+	int	icon_buf;
+	u8	*icon; //pointer to icon image
+	u16	iconw;
+	u16	iconh;
 	char	file_path[384]; //path to entry file
 	char	icon_path[384]; //path to entry icon
 }
@@ -1288,12 +1288,12 @@ xmbmem __attribute__((aligned(16)));
 typedef struct
 {
 	u8		init;
-    u16		size;
+	u16		size;
 	u16		first;
 	u8		*data;
-	char	name[32];
+	char		name[32];
 	u8		group;	// Bits 0-4: for genre/emulators: genres/retro_groups
-					// Bits 7-5: for alphabetic grouping (alpha_groups)
+	// Bits 7-5: for alphabetic grouping (alpha_groups)
 
 	xmbmem	member[MAX_XMB_MEMBERS];
 }
@@ -1448,18 +1448,11 @@ int osk_open=0;
 
 volatile int dialog_ret=0;
 
-u32 type_dialog_yes_no = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_YESNO
-					   | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF | CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_NO;
-
-u32 type_dialog_yes_back = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK
-					   | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF | CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_OK;
-
-
-u32 type_dialog_ok = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK
-				   | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON| CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_OK;
-
-u32 type_dialog_no = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON;
-u32 type_dialog_back = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF;
+static u32 type_dialog_yes_no = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_YESNO | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF | CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_NO;
+static u32 type_dialog_yes_back = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF | CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_OK;
+static u32 type_dialog_ok = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_OK | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON| CELL_MSGDIALOG_TYPE_DEFAULT_CURSOR_OK;
+static u32 type_dialog_no = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_ON;
+static u32 type_dialog_back = CELL_MSGDIALOG_TYPE_SE_TYPE_NORMAL | CELL_MSGDIALOG_TYPE_BG_VISIBLE | CELL_MSGDIALOG_TYPE_BUTTON_TYPE_NONE | CELL_MSGDIALOG_TYPE_DISABLE_CANCEL_OFF;
 
 static void dialog_fun1( int button_type, void * )
 {
@@ -1505,7 +1498,7 @@ static void dialog_fun2( int button_type, void * )
 
 #define ClearSurface() cellGcmSetClearSurface(CELL_GCM_CLEAR_Z | CELL_GCM_CLEAR_R | CELL_GCM_CLEAR_G |	CELL_GCM_CLEAR_B | CELL_GCM_CLEAR_A);
 
-void wait_dialog()
+static void wait_dialog()
 {
 
 	while(!dialog_ret)
@@ -1615,21 +1608,13 @@ u64 is_size(char *path)
 		return 0;
 }
 
-int exist(char *path)
+static int exist(const char *path)
 {
 	Lv2FsStat buf;
 	return lv2FsStat(path, &buf)>=0;
 }
 
-int exist_c(const char *path)
-{
-	//struct stat p_stat;
-	//return (stat(path, &p_stat)>=0);
-	Lv2FsStat buf;
-	return lv2FsStat(path, &buf)>=0;
-}
-
-int rndv(int maxval)
+static inline int rndv(int maxval)
 {
 	return (int) ((float)rand() * ((float)maxval / (float)RAND_MAX));
 }
@@ -1679,12 +1664,11 @@ static void usbdev_uninit(void)
 }
 #endif
 
-void flipc(int _fc)
+static void flipc(int _fc)
 {
 	int flipF;
 	for(flipF = 0; flipF<_fc; flipF++)
 	{
-		sys_timer_usleep(3336);
 		ClearSurface();
 		flip();
 	}
@@ -1746,175 +1730,175 @@ static int pad_read( void )
 	if(pad_num>6) pad_num=0;
 	key_repeat_t[pad_num]=0;
 
-static CellPadData databuf;
+	static CellPadData databuf;
 
-static CellMouseInfo Info;
-static CellMouseData Data;
+	static CellMouseInfo Info;
+	static CellMouseData Data;
 
-static CellKbInfo info;
-static CellKbData kdata;
+	static CellKbInfo info;
+	static CellKbData kdata;
 
-float mouse_speed=0.001f;
+	float mouse_speed=0.001f;
 
-uint32_t old_info_m = 0;
-uint32_t old_info_k = 0;
+	uint32_t old_info_m = 0;
+	uint32_t old_info_k = 0;
 
 	u16 padSensorX;
 	u16 padSensorY;
 	u16 padSensorG;
 
-//check for keyboard input
+	//check for keyboard input
 
-		if(cellKbSetReadMode (0, CELL_KB_RMODE_INPUTCHAR) != CELL_KB_OK) goto read_mouse;
-		if(cellKbSetCodeType (0, CELL_KB_CODETYPE_ASCII)  != CELL_KB_OK) goto read_mouse;
-		if(cellKbGetInfo (&info) != CELL_KB_OK) goto read_mouse;
+	if(cellKbSetReadMode (0, CELL_KB_RMODE_INPUTCHAR) != CELL_KB_OK) goto read_mouse;
+	if(cellKbSetCodeType (0, CELL_KB_CODETYPE_ASCII)  != CELL_KB_OK) goto read_mouse;
+	if(cellKbGetInfo (&info) != CELL_KB_OK) goto read_mouse;
 
-		if((info.info & CELL_KB_INFO_INTERCEPTED) &&
-		   (!(old_info_k & CELL_KB_INFO_INTERCEPTED))){
-			old_info_k = info.info;
-		}else if((!(info.info & CELL_KB_INFO_INTERCEPTED)) &&
-				 (old_info_k & CELL_KB_INFO_INTERCEPTED)){
-			old_info_k = info.info;
-		}
-        if (info.status[0] == CELL_KB_STATUS_DISCONNECTED) goto read_mouse;
-		if (cellKbRead (0, &kdata)!=CELL_KB_OK) goto read_mouse;
-        if (kdata.len == 0) goto read_mouse;
+	if((info.info & CELL_KB_INFO_INTERCEPTED) &&
+			(!(old_info_k & CELL_KB_INFO_INTERCEPTED))){
+		old_info_k = info.info;
+	}else if((!(info.info & CELL_KB_INFO_INTERCEPTED)) &&
+			(old_info_k & CELL_KB_INFO_INTERCEPTED)){
+		old_info_k = info.info;
+	}
+	if (info.status[0] == CELL_KB_STATUS_DISCONNECTED) goto read_mouse;
+	if (cellKbRead (0, &kdata)!=CELL_KB_OK) goto read_mouse;
+	if (kdata.len == 0) goto read_mouse;
 
-        old_status_k = info.status[0];
-
-
-		padd = 0;
-		if(kdata.keycode[0]>0x2f && kdata.keycode[0]<0x37) pad_num=kdata.keycode[0]-0x30; //0-6 switch pad port
-		if(kdata.keycode[0]>0x8039 && kdata.keycode[0]<0x8040 && cover_mode != MODE_FILEMAN) //F1-F6 switch cover mode
-		{
-			cover_mode=kdata.keycode[0]-0x803a; old_fi=0;
-			old_fi=-1;
-			counter_png=0;
-			goto pad_out;
-		}
-
-		if(cover_mode == MODE_FILEMAN)
-		{
-			if(kdata.keycode[0]==0x8049 || kdata.keycode[0]==0xC049) padd = (1<<11); //INS= R1
-			else if(kdata.keycode[0]==0x803b) padd = padd | (1<<14)|(1<<0); //F2= select+x
-			else if(kdata.keycode[0]==0x0009) padd = padd | (1<<10); //TAB= L1
-
-			else if(kdata.keycode[0]==0xC050) mouseX-=0.02f; //LEFT (NUM BLOCK)
-			else if(kdata.keycode[0]==0xC04F) mouseX+=0.02f; //RIGHT
-			else if(kdata.keycode[0]==0xC052) mouseY-=0.02f; //UP
-			else if(kdata.keycode[0]==0xC051) mouseY+=0.02f; //DOWN
-
-			else if(kdata.keycode[0]==0x78 || kdata.keycode[0]==0x58) padd = padd | (1<<13) | (1<<0); //x = select+circle / move
-			else if(kdata.keycode[0]==0x76 || kdata.keycode[0]==0x56) padd = padd | (1<<2); //v = R3 / HEX view
-			else if(kdata.keycode[0]==0xC04B) padd = padd | (1<<8); //PGUP->L2
-			else if(kdata.keycode[0]==0xC04E) padd = padd | (1<<9); //PGDN->R2
-
-		}
-
-		if(kdata.keycode[0]==0x8050) padd = padd | (1<<7); //LEFT
-		else if(kdata.keycode[0]==0x804F) padd = padd | (1<<5); //RIGHT
-		else if(kdata.keycode[0]==0x8052) padd = padd | (1<<4); //UP
-		else if(kdata.keycode[0]==0x8051) padd = padd | (1<<6); //DOWN
-
-		else if(kdata.keycode[0]==0x804B) padd = padd | (1<<7); //PGUP->LEFT
-		else if(kdata.keycode[0]==0x804E) padd = padd | (1<<5); //PGDN->RIGHT
-
-		else if(kdata.keycode[0]==0x804C || kdata.keycode[0]==0xC04C) padd = padd | (1<<15); //DEL
-		else if(kdata.keycode[0]==0x400A || kdata.keycode[0]==0x000A) padd = padd | (1<<14); //ENTER
-		else if(kdata.keycode[0]==0x8029) padd = padd | (1<<12); //ESC->TRIANGLE
-
-		else if(kdata.keycode[0]==0x402b) padd = padd | (1<<3) | (1<<4); //NUM+ = START-UP
-		else if(kdata.keycode[0]==0x402d) padd = padd | (1<<3) | (1<<6); //NUM- = START-DOWN
-		else if(kdata.keycode[0]==0x402f) padd = padd | (1<<3) | (1<<7); // / = START-left
-		else if(kdata.keycode[0]==0x402a) padd = padd | (1<<3) | (1<<5); // *- = START-right
+	old_status_k = info.status[0];
 
 
-		else if(kdata.keycode[0]==0x8044) padd = padd | (1<<0) | (1<<10); //F11 = SELECT+L1
-		else if(kdata.keycode[0]==0x8045 || kdata.keycode[0]==0x0009) padd = padd | (1<<10); //F12 = L1
-		else if(kdata.keycode[0]==0x8043) padd = padd | (1<<2); //F10 = R3
-		else if(kdata.keycode[0]==0x8042) padd = padd | (1<<9); //F9 = R2
-		else if(kdata.keycode[0]==0x8041) padd = padd | (1<<11); //F8 = R1
-		else if(kdata.keycode[0]==0x8040 || kdata.keycode[0]==0x8039) padd = padd | (1<<1); //F7 = L3
-		else if(kdata.keycode[0]==0x43 || kdata.keycode[0]==0x63) padd = padd | (1<<13); //c = circle / copy
-
+	padd = 0;
+	if(kdata.keycode[0]>0x2f && kdata.keycode[0]<0x37) pad_num=kdata.keycode[0]-0x30; //0-6 switch pad port
+	if(kdata.keycode[0]>0x8039 && kdata.keycode[0]<0x8040 && cover_mode != MODE_FILEMAN) //F1-F6 switch cover mode
+	{
+		cover_mode=kdata.keycode[0]-0x803a; old_fi=0;
+		old_fi=-1;
+		counter_png=0;
 		goto pad_out;
+	}
 
-// check for mouse input
+	if(cover_mode == MODE_FILEMAN)
+	{
+		if(kdata.keycode[0]==0x8049 || kdata.keycode[0]==0xC049) padd = (1<<11); //INS= R1
+		else if(kdata.keycode[0]==0x803b) padd = padd | (1<<14)|(1<<0); //F2= select+x
+		else if(kdata.keycode[0]==0x0009) padd = padd | (1<<10); //TAB= L1
+
+		else if(kdata.keycode[0]==0xC050) mouseX-=0.02f; //LEFT (NUM BLOCK)
+		else if(kdata.keycode[0]==0xC04F) mouseX+=0.02f; //RIGHT
+		else if(kdata.keycode[0]==0xC052) mouseY-=0.02f; //UP
+		else if(kdata.keycode[0]==0xC051) mouseY+=0.02f; //DOWN
+
+		else if(kdata.keycode[0]==0x78 || kdata.keycode[0]==0x58) padd = padd | (1<<13) | (1<<0); //x = select+circle / move
+		else if(kdata.keycode[0]==0x76 || kdata.keycode[0]==0x56) padd = padd | (1<<2); //v = R3 / HEX view
+		else if(kdata.keycode[0]==0xC04B) padd = padd | (1<<8); //PGUP->L2
+		else if(kdata.keycode[0]==0xC04E) padd = padd | (1<<9); //PGDN->R2
+
+	}
+
+	if(kdata.keycode[0]==0x8050) padd = padd | (1<<7); //LEFT
+	else if(kdata.keycode[0]==0x804F) padd = padd | (1<<5); //RIGHT
+	else if(kdata.keycode[0]==0x8052) padd = padd | (1<<4); //UP
+	else if(kdata.keycode[0]==0x8051) padd = padd | (1<<6); //DOWN
+
+	else if(kdata.keycode[0]==0x804B) padd = padd | (1<<7); //PGUP->LEFT
+	else if(kdata.keycode[0]==0x804E) padd = padd | (1<<5); //PGDN->RIGHT
+
+	else if(kdata.keycode[0]==0x804C || kdata.keycode[0]==0xC04C) padd = padd | (1<<15); //DEL
+	else if(kdata.keycode[0]==0x400A || kdata.keycode[0]==0x000A) padd = padd | (1<<14); //ENTER
+	else if(kdata.keycode[0]==0x8029) padd = padd | (1<<12); //ESC->TRIANGLE
+
+	else if(kdata.keycode[0]==0x402b) padd = padd | (1<<3) | (1<<4); //NUM+ = START-UP
+	else if(kdata.keycode[0]==0x402d) padd = padd | (1<<3) | (1<<6); //NUM- = START-DOWN
+	else if(kdata.keycode[0]==0x402f) padd = padd | (1<<3) | (1<<7); // / = START-left
+	else if(kdata.keycode[0]==0x402a) padd = padd | (1<<3) | (1<<5); // *- = START-right
+
+
+	else if(kdata.keycode[0]==0x8044) padd = padd | (1<<0) | (1<<10); //F11 = SELECT+L1
+	else if(kdata.keycode[0]==0x8045 || kdata.keycode[0]==0x0009) padd = padd | (1<<10); //F12 = L1
+	else if(kdata.keycode[0]==0x8043) padd = padd | (1<<2); //F10 = R3
+	else if(kdata.keycode[0]==0x8042) padd = padd | (1<<9); //F9 = R2
+	else if(kdata.keycode[0]==0x8041) padd = padd | (1<<11); //F8 = R1
+	else if(kdata.keycode[0]==0x8040 || kdata.keycode[0]==0x8039) padd = padd | (1<<1); //F7 = L3
+	else if(kdata.keycode[0]==0x43 || kdata.keycode[0]==0x63) padd = padd | (1<<13); //c = circle / copy
+
+	goto pad_out;
+
+	// check for mouse input
 
 read_mouse:
-		ret = cellMouseGetInfo (&Info);
+	ret = cellMouseGetInfo (&Info);
 
-        if((Info.info & CELL_MOUSE_INFO_INTERCEPTED) &&
-           (!(old_info_m & CELL_MOUSE_INFO_INTERCEPTED))){
-            old_info_m = Info.info;
-        }else if((!(Info.info & CELL_MOUSE_INFO_INTERCEPTED)) &&
-                 (old_info_m & CELL_MOUSE_INFO_INTERCEPTED)){
-            old_info_m = Info.info;
-        }
+	if((Info.info & CELL_MOUSE_INFO_INTERCEPTED) &&
+			(!(old_info_m & CELL_MOUSE_INFO_INTERCEPTED))){
+		old_info_m = Info.info;
+	}else if((!(Info.info & CELL_MOUSE_INFO_INTERCEPTED)) &&
+			(old_info_m & CELL_MOUSE_INFO_INTERCEPTED)){
+		old_info_m = Info.info;
+	}
 
-		if (Info.status[0] == CELL_MOUSE_STATUS_DISCONNECTED) goto read_pad;
+	if (Info.status[0] == CELL_MOUSE_STATUS_DISCONNECTED) goto read_pad;
 
-        ret = cellMouseGetData (0, &Data);
-        if (CELL_OK != ret) goto read_pad;
-        if (Data.update != CELL_MOUSE_DATA_UPDATE) goto read_pad;
+	ret = cellMouseGetData (0, &Data);
+	if (CELL_OK != ret) goto read_pad;
+	if (Data.update != CELL_MOUSE_DATA_UPDATE) goto read_pad;
 
-//		sprintf(mouseInfo, "Buttons : %02X | x-axis : %d | y-axis : %d | Wheel : %d | Tilt : %d ", Data.buttons, Data.x_axis, Data.y_axis, Data.wheel, Data.tilt);
-		old_status = Info.status[0];
-		padd=0;
-		if(Data.buttons & 1) padd=BUTTON_CROSS; // LEFT = CROSS
-		if(Data.buttons & 2)
-		{
-			if(cover_mode != MODE_XMMB)
-				padd |= BUTTON_CIRCLE; // RIGHT=CIRCLE
-			else
-				padd |= BUTTON_TRIANGLE; //RIGHT=TRIANGLE
-		}
-		if(Data.buttons & 4) padd |= BUTTON_R1;  //WHEEL=R1
-
+	//		sprintf(mouseInfo, "Buttons : %02X | x-axis : %d | y-axis : %d | Wheel : %d | Tilt : %d ", Data.buttons, Data.x_axis, Data.y_axis, Data.wheel, Data.tilt);
+	old_status = Info.status[0];
+	padd=0;
+	if(Data.buttons & 1) padd=BUTTON_CROSS; // LEFT = CROSS
+	if(Data.buttons & 2)
+	{
 		if(cover_mode != MODE_XMMB)
-		{
-			if(Data.x_axis<-1 || Data.x_axis> 1) mouseX+= Data.x_axis*mouse_speed;
-			if(Data.y_axis<-1 || Data.y_axis> 1) mouseY+= Data.y_axis*mouse_speed;
-		}
+			padd |= BUTTON_CIRCLE; // RIGHT=CIRCLE
 		else
-		{
-			if(Data.x_axis<-10) padd|=BUTTON_LEFT;
-			if(Data.y_axis<-10) padd|=BUTTON_UP;
-			if(Data.x_axis> 10) padd|=BUTTON_RIGHT;
-			if(Data.y_axis> 10) padd|=BUTTON_DOWN;
-		}
+			padd |= BUTTON_TRIANGLE; //RIGHT=TRIANGLE
+	}
+	if(Data.buttons & 4) padd |= BUTTON_R1;  //WHEEL=R1
 
-		if(cover_mode!=4) {
-			if(Data.wheel>0)	padd = padd | (1<<4);
-			if(Data.wheel<0)	padd = padd | (1<<6);
-		}
-		else
-		{
-			if(Data.wheel>0)	padd = padd | (1<<7);
-			if(Data.wheel<0)	padd = padd | (1<<5);
-		}
+	if(cover_mode != MODE_XMMB)
+	{
+		if(Data.x_axis<-1 || Data.x_axis> 1) mouseX+= Data.x_axis*mouse_speed;
+		if(Data.y_axis<-1 || Data.y_axis> 1) mouseY+= Data.y_axis*mouse_speed;
+	}
+	else
+	{
+		if(Data.x_axis<-10) padd|=BUTTON_LEFT;
+		if(Data.y_axis<-10) padd|=BUTTON_UP;
+		if(Data.x_axis> 10) padd|=BUTTON_RIGHT;
+		if(Data.y_axis> 10) padd|=BUTTON_DOWN;
+	}
 
-		if(cover_mode != MODE_FILEMAN) {
-			if(Data.x_axis>10)	padd = padd | (1<<5);
-			if(Data.x_axis<-10)	padd = padd | (1<<7);
+	if(cover_mode!=4) {
+		if(Data.wheel>0)	padd = padd | (1<<4);
+		if(Data.wheel<0)	padd = padd | (1<<6);
+	}
+	else
+	{
+		if(Data.wheel>0)	padd = padd | (1<<7);
+		if(Data.wheel<0)	padd = padd | (1<<5);
+	}
 
-			if(Data.y_axis>10)	padd = padd | (1<<6);
-			if(Data.y_axis<-10)	padd = padd | (1<<4);
+	if(cover_mode != MODE_FILEMAN) {
+		if(Data.x_axis>10)	padd = padd | (1<<5);
+		if(Data.x_axis<-10)	padd = padd | (1<<7);
 
-		}
+		if(Data.y_axis>10)	padd = padd | (1<<6);
+		if(Data.y_axis<-10)	padd = padd | (1<<4);
 
-		mouseYD=0.0f; mouseXD=0.0f;
-		mouseYDL=0.0f; mouseXDL=0.0f;
-		mouseYDR=0.0f; mouseXDR=0.0f;
-		mouseXD=0; mouseYD=0;
+	}
 
-		cellMouseClearBuf(0);
+	mouseYD=0.0f; mouseXD=0.0f;
+	mouseYDL=0.0f; mouseXDL=0.0f;
+	mouseYDR=0.0f; mouseXDR=0.0f;
+	mouseXD=0; mouseYD=0;
+
+	cellMouseClearBuf(0);
 
 	goto pad_out;
 
 read_pad:
 
-CellPadInfo2 infobuf;
+	CellPadInfo2 infobuf;
 
 
 	if ( cellPadGetInfo2(&infobuf) != 0 )
@@ -2810,18 +2794,20 @@ int set_game_flags(int _game_sel)
 /* FTP SECTION                                      */
 /****************************************************/
 
-void ftp_on()
+static void ftp_on()
 {
-	if(ftp_service) return;
+	if(ftp_service)
+		return;
 	ftp_service=1;
 	ftp_clients=0;
 	main_ftp(0);
 	return;
 }
 
-void ftp_off()
+static void ftp_off()
 {
-	if(!ftp_service) return;
+	if(!ftp_service)
+		return;
 	ftp_service=0;
 	ftp_clients=0;
 	main_ftp(1);
@@ -2835,7 +2821,7 @@ void ftp_off()
 //ret = network_com("GET", "10.20.2.208", 11222, "/", "/dev_hdd0/GAMES/down_test.bin", 3);
 
 
-void net_folder_copy(char *path, char *path_new, char *path_name)
+static void net_folder_copy(char *path, char *path_new, char *path_name)
 {
 
 	FILE *fp;
@@ -3645,7 +3631,7 @@ termination:
 }
 
 
-void net_folder_copy_put(char *path, char *path_new, char *path_name)
+static void net_folder_copy_put(char *path, char *path_new, char *path_name)
 {
 	file_counter=0;
 	global_device_bytes=0;
@@ -7903,7 +7889,7 @@ int get_param_sfo_field(char *file, char *field, char *value)
 
 void change_param_sfo_version(const char *file) //parts from drizzt
 {
-	if(!exist_c(file) || strstr(file, "/dev_bdvd")!=NULL) return;
+	if(!exist(file) || strstr(file, "/dev_bdvd")!=NULL) return;
 	FILE *fp;
 	cellFsChmod(file, 0666);
 	fp = fopen(file, "rb");
