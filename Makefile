@@ -1,5 +1,3 @@
-.PHONY: mm npdrm_package
-
 CELL_MK_DIR = $(CELL_SDK)/samples/mk
 include $(CELL_MK_DIR)/sdk.makedef.mk
 CELL_INC_DIR = $(CELL_SDK)/target/include
@@ -76,18 +74,8 @@ $(FPSHADER_PPU_OBJS): $(OBJS_DIR)/$(MM)%.ppu.o : %.fpo
 	@$(PPU_OBJCOPY)  -I binary -O elf64-powerpc-celloslv2 -B powerpc $< $@ > nul
 
 
-mm : $(PPU_TARGET)
+pkg : $(PPU_TARGET)
 	@mkdir -p $(BIN)
 	@$(PPU_STRIP) -s $< -o $(OBJS_DIR)/$(PPU_TARGET)
 	@$(MAKE_FSELF_NPDRM) $(PPU_TARGET) $(RELEASE)$(NPDRM)/USRDIR/EBOOT.BIN
 	$(MAKE_PACKAGE_NPDRM) $(RELEASE)/package.conf $(RELEASE)$(NPDRM)
-
-	@cp ./MM4PS3*.pkg $(BIN)/$(MM_REL)_340.pkg
-	@mv ./MM4PS3*.pkg $(BIN)/$(MM_REL)_355.pkg
-	@rm ./$(PPU_TARGET)
-	@rm ./*.vpo
-	@rm ./*.fpo
-	@mv ./objs/$(MM_REL)_BARE.elf $(BIN)/$(MM_REL).elf
-	@echo 
-	@echo PKG and binaries: [$(BIN)]
-	@echo Done!
