@@ -19029,16 +19029,6 @@ void add_home_column()
 
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_THEMES, (char*)STR_XC1_THEMES1,
 				/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_theme, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-		if(exist(helpMME))
-		{
-			add_xmb_member(xmb[1].member, &xmb[1].size, (char*)"Solar System Visuals", (char*)"Launch SOLAR application by condorstrike",
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_help, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-		}
-		else
-		{
-			add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_HELP, (char*)STR_XC1_HELP1,
-					/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb_icon_help, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
-		}
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_RESTART, (char*)STR_XC1_RESTART1,
 				/*type*/6, /*status*/2, /*game_id*/-1, /*icon*/xmb[1].data, 128, 128, /*f_path*/(char*)"/", /*i_path*/(char*)"/", 0, 0);
 		add_xmb_member(xmb[1].member, &xmb[1].size, (char*)STR_XC1_QUIT, (char*)STR_XC1_QUIT1,
