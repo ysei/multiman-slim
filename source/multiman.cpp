@@ -667,7 +667,7 @@ char fba_roms[512];
 
 char current_showtime[10]="03.01.241";
 
-char ini_hdd_dir[64]="/dev_hdd0/GAMES/";
+//char ini_hdd_dir[64]="/dev_hdd0/GAMES/";
 char ini_usb_dir[64]="GAMES";
 char hdd_home[128]="/dev_hdd0/GAMES";
 //aux search folders
@@ -16096,7 +16096,7 @@ if ( fp != NULL )
 		if(line[strlen(line)-1]=='\r' || line[strlen(line)-1]=='\n') line[strlen(line)-2]=0;
 		val=strchr(line, '=')+1;
 
-		if(strstr (line,"hdd_dir=")!=NULL)		sprintf(ini_hdd_dir, val);
+		//if(strstr (line,"hdd_dir=")!=NULL)		sprintf(ini_hdd_dir, val);
 		if(strstr (line,"usb_dir=")!=NULL)		sprintf(ini_usb_dir, val);
 
 		if(strstr (line,"hdd_home=")!=NULL)		sprintf(hdd_home, val);
@@ -21100,19 +21100,14 @@ int main(int argc, char **argv)
 				fclose(flist);
 				max_menu_list=(int)(llist_size / sizeof(t_menu_list))-1;//sizeof(t_menu_list));
 
-				//if(!is_reloaded) {delete_entries(menu_list, &max_menu_list, 1); is_reloaded=1;} else is_reloaded=2;
 
 				int i;
 				for(i=0;i<max_menu_list;i++)
 				{	if(menu_list[i].cover==1) menu_list[i].cover=0;
 					if(!exist(menu_list[i].path)) {max_menu_list=0; is_reloaded=0; break;}
-					//else {is_reloaded=1; }//forcedevices=0x0001;
 				}
 				if(max_menu_list)
-				{
-					//delete_entries(menu_list, &max_menu_list, (1<<11));
 					sort_entries(menu_list, &max_menu_list );
-				}
 			}
 			else {fclose(flist);remove(list_file);is_reloaded=0;}
 		} else is_reloaded=0;
@@ -21227,12 +21222,6 @@ int main(int argc, char **argv)
 
 	sprintf(string1, "%s/lang", app_usrdir);
 	mkdir(string1, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
-
-/*
-	sprintf(string1, "%s/LICDIR/LIC.DAT", app_homedir);	remove(string1);
-	sprintf(string1, "%s/LICDIR", app_homedir);	rmdir(string1);
-	sprintf(string1, "%s/TROPDIR", app_homedir); if(exist(string1)) {my_game_delete(string1); rmdir(string1);}
-*/
 
 	pad_read();
 	debug_mode = (( (new_pad | old_pad) & (BUTTON_R2 | BUTTON_L2) ) == (BUTTON_R2 | BUTTON_L2));
@@ -21600,7 +21589,11 @@ int main(int argc, char **argv)
 	}
 
 	mkdir(covers_dir, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
-	DIR  *dir;dir=opendir (ini_hdd_dir); if(!dir) mkdir(ini_hdd_dir, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR); else closedir(dir);
+	#if 0
+	DIR  *dir;
+	dir=opendir (ini_hdd_dir);
+	if(!dir)
+		mkdir(ini_hdd_dir, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR); else closedir(dir);
 	strncpy(hdd_folder, ini_hdd_dir, 64);
 	dir=opendir (ini_hdd_dir);
 	if(!dir){
@@ -21609,6 +21602,7 @@ int main(int argc, char **argv)
 		wait_dialog();
 	}
 	else closedir(dir);
+	#endif
 
 	if(theme_sound && multiStreamStarted)
 	{
@@ -24746,6 +24740,7 @@ pass_ok:
 				flipc(60);
 
 				char path[512], cfile[512], ffile[512], cfile0[16];
+				DIR * dir;
 				for(int n=0;n<128;n++){
 				sprintf(path, "%s/BDMV/CLIPINF", menu_list[game_sel].path); dir=opendir (path);	while(1) { struct dirent *entry=readdir (dir);	if(!entry) break; sprintf(cfile0, "%s", entry->d_name);
 				if(strstr (cfile0,".clpi")!=NULL) {cfile0[5]=0; sprintf(cfile, "%s/%s.CPI", path, cfile0); sprintf(ffile, "%s/%s", path, entry->d_name); rename(ffile, cfile);}}closedir(dir);
