@@ -206,8 +206,67 @@ void initShader(void)
 	vertex_program_ucode = ucode;
 }
 
+static void init_text_shader( void )
+{
 
-int text_create();
+	void *ucode;
+	u32 ucode_size;
+
+	vertex_prg = &_binary_vpshader2_vpo_start;
+	fragment_prg = &_binary_fpshader2_fpo_start;
+
+	cellGcmCgInitProgram( vertex_prg );
+	cellGcmCgInitProgram( fragment_prg );
+
+	cellGcmCgGetUCode( fragment_prg, &ucode, &ucode_size );
+
+	text_fragment_prg_ucode = localAllocAlign(64, ucode_size );
+
+	cellGcmAddressToOffset( text_fragment_prg_ucode, &text_fragment_offset );
+
+	memcpy( text_fragment_prg_ucode, ucode, ucode_size );
+
+	cellGcmCgGetUCode( vertex_prg, &text_vertex_prg_ucode, &ucode_size );
+
+}
+
+static int text_create()
+{
+	init_text_shader();
+
+	vertex_text = (vtx_texture*) localAllocAlign(128*1024, 1024*sizeof(vtx_texture));
+
+	cellGcmAddressToOffset( (void*)vertex_text,
+							&vertex_text_offset );
+
+	text_param.format  = CELL_GCM_TEXTURE_A8R8G8B8;
+	text_param.format |= CELL_GCM_TEXTURE_LN;
+
+	text_param.remap = CELL_GCM_TEXTURE_REMAP_REMAP << 14 | CELL_GCM_TEXTURE_REMAP_REMAP << 12 | CELL_GCM_TEXTURE_REMAP_REMAP << 10 |
+		CELL_GCM_TEXTURE_REMAP_REMAP <<  8 | CELL_GCM_TEXTURE_REMAP_FROM_G << 6 | CELL_GCM_TEXTURE_REMAP_FROM_R << 4 |
+		CELL_GCM_TEXTURE_REMAP_FROM_A << 2 | CELL_GCM_TEXTURE_REMAP_FROM_B;
+
+	text_param.mipmap = 1;
+	text_param.cubemap = CELL_GCM_FALSE;
+	text_param.dimension = CELL_GCM_TEXTURE_DIMENSION_2;
+
+	CGparameter objCoord = cellGcmCgGetNamedParameter( vertex_prg, "a2v.objCoord" );
+	if( objCoord == 0 ) return -1;
+
+	CGparameter texCoord = cellGcmCgGetNamedParameter( vertex_prg, "a2v.texCoord" );
+	if( texCoord == 0) return -1;
+
+	CGparameter texture = cellGcmCgGetNamedParameter( fragment_prg, "texture" );
+
+	if( texture == 0 ) return -1;
+
+	text_obj_coord_indx = cellGcmCgGetParameterResource( vertex_prg, objCoord) - CG_ATTR0;
+	text_tex_coord_indx = cellGcmCgGetParameterResource( vertex_prg, texCoord) - CG_ATTR0;
+	tindex = (CGresource) (cellGcmCgGetParameterResource( fragment_prg, texture ) - CG_TEXUNIT0 );
+
+	return 0;
+
+}
 
 int initDisplay(void)
 {
@@ -1108,68 +1167,8 @@ void draw_list( t_menu_list *menu, int menu_size, int selected, int dir_mode, in
 }
 
 
-static void init_text_shader( void )
-{
-
-	void *ucode;
-	u32 ucode_size;
-
-	vertex_prg = &_binary_vpshader2_vpo_start;
-	fragment_prg = &_binary_fpshader2_fpo_start;
-
-	cellGcmCgInitProgram( vertex_prg );
-	cellGcmCgInitProgram( fragment_prg );
-
-	cellGcmCgGetUCode( fragment_prg, &ucode, &ucode_size );
-
-	text_fragment_prg_ucode = localAllocAlign(64, ucode_size );
-
-	cellGcmAddressToOffset( text_fragment_prg_ucode, &text_fragment_offset );
-
-	memcpy( text_fragment_prg_ucode, ucode, ucode_size );
-
-	cellGcmCgGetUCode( vertex_prg, &text_vertex_prg_ucode, &ucode_size );
-
-}
 
 
-int text_create()
-{
-	init_text_shader();
-
-	vertex_text = (vtx_texture*) localAllocAlign(128*1024, 1024*sizeof(vtx_texture));
-
-	cellGcmAddressToOffset( (void*)vertex_text,
-							&vertex_text_offset );
-
-	text_param.format  = CELL_GCM_TEXTURE_A8R8G8B8;
-	text_param.format |= CELL_GCM_TEXTURE_LN;
-
-	text_param.remap = CELL_GCM_TEXTURE_REMAP_REMAP << 14 | CELL_GCM_TEXTURE_REMAP_REMAP << 12 | CELL_GCM_TEXTURE_REMAP_REMAP << 10 |
-		CELL_GCM_TEXTURE_REMAP_REMAP <<  8 | CELL_GCM_TEXTURE_REMAP_FROM_G << 6 | CELL_GCM_TEXTURE_REMAP_FROM_R << 4 |
-		CELL_GCM_TEXTURE_REMAP_FROM_A << 2 | CELL_GCM_TEXTURE_REMAP_FROM_B;
-
-	text_param.mipmap = 1;
-	text_param.cubemap = CELL_GCM_FALSE;
-	text_param.dimension = CELL_GCM_TEXTURE_DIMENSION_2;
-
-	CGparameter objCoord = cellGcmCgGetNamedParameter( vertex_prg, "a2v.objCoord" );
-	if( objCoord == 0 ) return -1;
-
-	CGparameter texCoord = cellGcmCgGetNamedParameter( vertex_prg, "a2v.texCoord" );
-	if( texCoord == 0) return -1;
-
-	CGparameter texture = cellGcmCgGetNamedParameter( fragment_prg, "texture" );
-
-	if( texture == 0 ) return -1;
-
-	text_obj_coord_indx = cellGcmCgGetParameterResource( vertex_prg, objCoord) - CG_ATTR0;
-	text_tex_coord_indx = cellGcmCgGetParameterResource( vertex_prg, texCoord) - CG_ATTR0;
-	tindex = (CGresource) (cellGcmCgGetParameterResource( fragment_prg, texture ) - CG_TEXUNIT0 );
-
-	return 0;
-
-}
 
 int set_texture( u8 *buffer, u32 x_size, u32 y_size )
 {

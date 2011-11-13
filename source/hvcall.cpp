@@ -9,18 +9,18 @@ int lv1_insert_htab_entry(u64 htab_id, u64 hpte_group, u64 hpte_v, u64 hpte_r,
 
 	// call lv1_insert_htab_entry
 	u64 ret = 0, ret_hpte_index = 0, ret_hpte_evicted_v =
-	    0, ret_hpte_evicted_r = 0;
+		0, ret_hpte_evicted_r = 0;
 	__asm__ __volatile__("mr %%r3, %4;" "mr %%r4, %5;" "mr %%r5, %6;"
-			     "mr %%r6, %7;" "mr %%r7, %8;" "mr %%r8, %9;"
-			     SYSCALL(HVSC_SYSCALL) "mr %0, %%r3;" "mr %1, %%r4;"
-			     "mr %2, %%r5;" "mr %3, %%r6;":"=r"(ret),
-			     "=r"(ret_hpte_index), "=r"(ret_hpte_evicted_v),
-			     "=r"(ret_hpte_evicted_r)
-			     :"r"(htab_id), "r"(hpte_group), "r"(hpte_v),
-			     "r"(hpte_r), "r"(bolted_flag), "r"(flags)
-			     :"r0", "r2", "r3", "r4", "r5", "r6", "r7", "r8",
-			     "r9", "r10", "r11", "r12", "lr", "ctr", "xer",
-			     "cr0", "cr1", "cr5", "cr6", "cr7", "memory");
+			"mr %%r6, %7;" "mr %%r7, %8;" "mr %%r8, %9;"
+			SYSCALL(HVSC_SYSCALL) "mr %0, %%r3;" "mr %1, %%r4;"
+			"mr %2, %%r5;" "mr %3, %%r6;":"=r"(ret),
+			"=r"(ret_hpte_index), "=r"(ret_hpte_evicted_v),
+			"=r"(ret_hpte_evicted_r)
+			:"r"(htab_id), "r"(hpte_group), "r"(hpte_v),
+			"r"(hpte_r), "r"(bolted_flag), "r"(flags)
+			:"r0", "r2", "r3", "r4", "r5", "r6", "r7", "r8",
+			"r9", "r10", "r11", "r12", "lr", "ctr", "xer",
+			"cr0", "cr1", "cr5", "cr6", "cr7", "memory");
 
 	REMOVE_HVSC_REDIRECT();
 

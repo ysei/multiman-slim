@@ -25939,7 +25939,6 @@ pass_ok:
 					else
 						if(payload==0 && sc36_path_patch==1 && !exist((char*)"/dev_bdvd"))
 						{
-							//dialog_ret=0; cellMsgDialogOpen2( type_dialog_ok, "Start your game from [* /app_home] menu.\n\nShould you run into problems - insert an original Playstation(R)3 game disc next time!", dialog_fun2, (void*)0x0000aaab, NULL ); wait_dialog();
 							poke_sc36_path( (char *) "/app_home" );
 						}
 
@@ -26040,68 +26039,66 @@ pass_ok:
 			{
 
 
-			if(strstr(menu_list[game_sel].path,"/dev_hdd0")!=NULL)
-			{
+				if(strstr(menu_list[game_sel].path,"/dev_hdd0")!=NULL)
+				{
 
-		dialog_ret=0; cellMsgDialogOpen2( type_dialog_no, (const char*) STR_ACT_AVCHD2, dialog_fun2, (void*)0x0000aaab, NULL );
-		flipc(60);
+					dialog_ret=0; cellMsgDialogOpen2( type_dialog_no, (const char*) STR_ACT_AVCHD2, dialog_fun2, (void*)0x0000aaab, NULL );
+					flipc(60);
 
-		char usb_save[32]="/none"; usb_save[5]=0;
+					char usb_save[32]="/none"; usb_save[5]=0;
 
 
-		sprintf(filename, "/dev_sd");
-		if(exist(filename)) {
-				sprintf(usb_save, "/dev_sd/PRIVATE");
-				 if(!exist(usb_save)) mkdir(usb_save, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
-		}
+					sprintf(filename, "/dev_sd");
+					if(exist(filename)) {
+						sprintf(usb_save, "/dev_sd/PRIVATE");
+						if(!exist(usb_save)) mkdir(usb_save, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
+					}
 
-		if(!exist(usb_save)) {
-			sprintf(filename, "/dev_ms");
-			if(exist(filename)) {
-					sprintf(usb_save, "/dev_ms");
-			}
-		}
+					if(!exist(usb_save)) {
+						sprintf(filename, "/dev_ms");
+						if(exist(filename)) {
+							sprintf(usb_save, "/dev_ms");
+						}
+					}
 
-		if(!exist(usb_save)) {
-			for(int n=0;n<9;n++){
-				sprintf(filename, "/dev_usb00%i", n);
-				if(exist(filename)) {
-					sprintf(usb_save, "%s", filename);
-					break;
+					if(!exist(usb_save)) {
+						for(int n=0;n<9;n++){
+							sprintf(filename, "/dev_usb00%i", n);
+							if(exist(filename)) {
+								sprintf(usb_save, "%s", filename);
+								break;
+							}
+						}
+					}
+
+					if(exist(usb_save)) {
+
+						sprintf(filename, "%s/AVCHD", usb_save); if(!exist(filename)) mkdir(filename, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
+						sprintf(filename, "%s/AVCHD/BDMV", usb_save); if(!exist(filename)) mkdir(filename, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
+
+						sprintf(filename, "%s/AVCHD/BDMV/INDEX.BDM", usb_save); if(!exist(filename)) file_copy((char *) avchdIN, (char *) filename, 0);
+						sprintf(filename, "%s/AVCHD/BDMV/MOVIEOBJ.BDM", usb_save);	if(!exist(filename)) file_copy((char *) avchdMV, (char *) filename, 0);
+
+						sprintf(filename, "%s/AVCHD", usb_save);
+						sprintf(usb_save, "%s", filename);
+
+						cellMsgDialogAbort();
+						syscall_mount2((char *)usb_save, (char *)menu_list[game_sel].path);
+
+						ret = unload_modules();
+						exit(0); break;
+
+					}
+					else
+
+					{
+						dialog_ret=0; cellMsgDialogAbort();
+						ret = cellMsgDialogOpen2( type_dialog_ok, (const char*) STR_ATT_USB, dialog_fun2, (void*)0x0000aaab, NULL );
+						wait_dialog();
+						goto skip_1;
+
+					}
 				}
-			}
-		}
-
-		if(exist(usb_save)) {
-
-			sprintf(filename, "%s/AVCHD", usb_save); if(!exist(filename)) mkdir(filename, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
-			sprintf(filename, "%s/AVCHD/BDMV", usb_save); if(!exist(filename)) mkdir(filename, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
-
-			sprintf(filename, "%s/AVCHD/BDMV/INDEX.BDM", usb_save); if(!exist(filename)) file_copy((char *) avchdIN, (char *) filename, 0);
-			sprintf(filename, "%s/AVCHD/BDMV/MOVIEOBJ.BDM", usb_save);	if(!exist(filename)) file_copy((char *) avchdMV, (char *) filename, 0);
-
-			sprintf(filename, "%s/AVCHD", usb_save);
-			sprintf(usb_save, "%s", filename);
-
-			cellMsgDialogAbort();
-			syscall_mount2((char *)usb_save, (char *)menu_list[game_sel].path);
-
-			ret = unload_modules();
-			exit(0); break;
-
-			}
-		else
-
-			{
-				dialog_ret=0; cellMsgDialogAbort();
-				ret = cellMsgDialogOpen2( type_dialog_ok, (const char*) STR_ATT_USB, dialog_fun2, (void*)0x0000aaab, NULL );
-				wait_dialog();
-				goto skip_1;
-
-			}
-
-
-			}
 
 
 
@@ -26155,11 +26152,11 @@ pass_ok:
 					}
 					// AVCHD doesn't exist and selected folder can be renamed
 
-						sprintf(title_backup, "%s/TitleBackup.txt", avchd_CURRENT);
-						fpA = fopen ( title_backup, "w" );
-						fputs ( menu_list[game_sel].entry,  fpA ); fputs ( CrLf,  fpA );
-						fclose(fpA);
-						ret=cellFsRename(avchd_CURRENT, avchd_ROOT);
+					sprintf(title_backup, "%s/TitleBackup.txt", avchd_CURRENT);
+					fpA = fopen ( title_backup, "w" );
+					fputs ( menu_list[game_sel].entry,  fpA ); fputs ( CrLf,  fpA );
+					fclose(fpA);
+					ret=cellFsRename(avchd_CURRENT, avchd_ROOT);
 
 				}
 
@@ -26170,14 +26167,14 @@ pass_ok:
 					wait_dialog();
 				}
 				else
-				// Exit to XMB after AVCHD rename
+					// Exit to XMB after AVCHD rename
 				{
 					unload_modules();
 					syscall_mount( (char *) "/dev_bdvd", mount_bdvd);
 					exit(0); break;
 				}
 			}
-			}
+		}
 
 		}
 
