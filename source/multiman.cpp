@@ -6574,7 +6574,6 @@ void blur_texture(uint8_t *buffer_to, uint32_t width, uint32_t height, int x, in
 
 void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_list *menu, int menu_size, int selected, int _dir_mode, int _display_mode, int _cover_mode, int opaq, int to_draw )
 {
-	if(to_draw && (_cover_mode==0))	memset(buffer, 0x00, FB(1));
 	float y = 0.1f, yb;
 	int i = 0, c=0;
 	char str[256];
@@ -6603,24 +6602,11 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 					if(i==selected){
 						u32 b_color=0x0080ffd0;
 						b_box_opaq+=b_box_step;
-						if(_cover_mode==2){
-							if(b_box_opaq>0xfb) b_box_step=-4;
-							if(b_box_opaq<0x20) b_box_step= 8;
-						}
-						else{
-							if(b_box_opaq>0xc0) b_box_step=-2;
-							if(b_box_opaq<0x30) b_box_step= 1;
-						}
+						if(b_box_opaq>0xc0) b_box_step=-2;
+						if(b_box_opaq<0x30) b_box_step= 1;
 
 						b_color = (b_color & 0xffffff00) | (b_box_opaq-20);
-						if(_cover_mode==2)
-						{
-							draw_square((0.08f-0.5f)*2.0f-0.02f, (0.5f-y+0.01)*2.0f , len+0.04f, 0.006f, -0.5f, b_color);
-							b_color = (b_color & 0xffffff00) | b_box_opaq;
-							draw_square((0.08f-0.5f)*2.0f-0.02f, (0.5f-y-0.038)*2.0f , len+0.04f, 0.006f, -0.5f, b_color);
-						}
-						else
-							draw_square((0.08f-0.5f)*2.0f-0.02f, (0.5f-y+0.01)*2.0f , len+0.04f, 0.1f, 0.0f, b_color);
+						draw_square((0.08f-0.5f)*2.0f-0.02f, (0.5f-y+0.01)*2.0f , len+0.04f, 0.1f, 0.0f, b_color);
 						break;
 					}
 
@@ -6663,10 +6649,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 	cellFontRenderSurfaceInit( surf,
 			buffer, width*4, 4,
 			width, height );
-	if(_cover_mode==2 || _cover_mode==0)
-		cellFontRenderSurfaceSetScissor( surf, 0, 0, (int)(0.62f*width)+(int)((0.05f)*width), height );
-	else
-		cellFontRenderSurfaceSetScissor( surf, 0, 0, width, height );
+	cellFontRenderSurfaceSetScissor( surf, 0, 0, width, height );
 
 	renderer = &RenderWork.Renderer;
 	fn = FONT_SYSTEM_5;
@@ -6722,8 +6705,6 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						else
 							sprintf(ansi, "%s", menu[i].title);
 
-						if(_dir_mode==0 && (_cover_mode==0 || _cover_mode==2)) { ansi[64]=0; }
-						if(_dir_mode!=0 && (_cover_mode==0 || _cover_mode==2)) { ansi[64]=0; }
 						if( (_cover_mode==1 || _cover_mode==4 || _cover_mode==7)) { ansi[128]=0; }
 						sprintf(str, "%s%s", ansi, is_split );
 					}
@@ -6759,12 +6740,12 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 							if(_dir_mode==1)
 							{
 								if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y-0.005f)*1080)+1, (uint8_t*) str, scale*1.1f, scale, slant, step, color );
-								if(_cover_mode==0 || it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.1f, scale, slant, step, color2 );
+								if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.1f, scale, slant, step, color2 );
 							}
 							else
 							{
 								if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y+0.001f)*1080)+2, (uint8_t*) str, scale*1.3f, scale, slant, step, color );
-								if(_cover_mode==0 || it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.001f)*1080), (uint8_t*) str, scale*1.3f, scale, slant, step, color2 );
+								if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.001f)*1080), (uint8_t*) str, scale*1.3f, scale, slant, step, color2 );
 							}
 
 						}
@@ -6777,7 +6758,7 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						{
 
 							if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+2+i_offset, (int)((y-0.005f)*1080)+2, (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color );
-							if(_cover_mode==0 || it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color2 );
+							if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y-0.005f)*1080), (uint8_t*) str, scale*1.5f, scale*1.4f, slant, step, color2 );
 						}
 					}
 
@@ -6791,11 +6772,11 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 						if(opaq>0x020 || i==selected)
 						{
 							if(_cover_mode!=0 && it==0) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+1+i_offset, (int)((y+0.022f)*1080)+1, (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color );
-							if(_cover_mode==0 || it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.022f)*1080), (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color2 );
+							if(it==1) Fonts_RenderPropText( cf, surf, (int)((0.08f)*1920)+i_offset, (int)((y+0.022f)*1080), (uint8_t*) str, scale/1.4f, scale/2.0f, 0.0f, step, color2 );
 						}
 					}
 
-					if((_cover_mode==0 || it==1) && strstr(menu[i].content, "PS3")!=NULL && strstr(menu[i].title_id, "NO_ID")==NULL)
+					if((it==1) && strstr(menu[i].content, "PS3")!=NULL && strstr(menu[i].title_id, "NO_ID")==NULL)
 					{
 						sprintf(str, "%s/%s_80.RAW", cache_dir, menu[i].title_id);
 						if(load_raw_texture( (u8*)text_TEMP, str, 80))
@@ -6807,19 +6788,6 @@ void draw_list_text( uint8_t *buffer, uint32_t width, uint32_t height, t_menu_li
 					c++;
 				}
 				i++;
-
-			}
-			if(_cover_mode==0) break;
-
-			if((_cover_mode==2 && it==0))
-			{
-				if(menu[selected].title[0]=='_' || menu_list[selected].split)
-				{
-					gray_texture(buffer, 1920, 1080, 1);
-					blur_texture(buffer, 1920, 1080, (int)((0.05f)*1920), (int) ((0.1f-0.025f)*1080), 1250, (int)((0.05f*max_entries+0.025f)*1080),  55, 0, 0, 2);
-				}
-				else
-					blur_texture(buffer, 1920, 1080, (int)((0.05f)*1920), (int) ((0.1f-0.025f)*1080), 1250, (int)((0.05f*max_entries+0.025f)*1080),  60, 0, 0, 2);
 
 			}
 		}
@@ -20292,10 +20260,6 @@ u8 read_pad_info()
 			//if(cover_mode == MODE_XMMB && xmb_icon==6) xmb[xmb_icon].first=game_sel;
 			//xmb_slide_step_y=0;
 			counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB && cover_mode!=4) {to_return=1; goto leave_for8;}}
-		if(cover_mode==0 || cover_mode==2) {
-			draw_list_text( text_bmp, 1920, 1080, menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, c_opacity, 0);
-			if( (int) (game_sel/14) != (int) (game_sel_last/14)) {counter_png=0;new_pad=0;{to_return=1; goto leave_for8;}}
-		}
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
@@ -20349,10 +20313,6 @@ u8 read_pad_info()
 			game_sel=0; game_sel_last=0; counter_png=0; new_pad=0; if(cover_mode != MODE_XMMB && cover_mode!=4) {to_return=1; goto leave_for8;}
 			}
 
-		if(cover_mode==0 || cover_mode==2) {
-			if( (int) (game_sel/14) != (int) (game_sel_last/14)) {counter_png=0; new_pad=0; {to_return=1; goto leave_for8;}}
-			else draw_list_text( text_bmp, 1920, 1080, menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, c_opacity, 0);
-			}
 		if(cover_mode==1 && game_last_page!=int(game_sel/8)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 		if(cover_mode==7 && game_last_page!=int(game_sel/32)){game_last_page=-1;new_pad=0;{to_return=1; goto leave_for8;}}
 	}
@@ -22559,89 +22519,6 @@ force_reload:
 
 			if(mode_list==0)
 			{
-				if(cover_mode==0 )
-					{
-					if(strstr(menu_list[game_sel].path,"/pvd_usb")!=NULL && strstr(menu_list[game_sel].title_id, "NO_ID")==NULL)
-						sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[game_sel].title_id);
-					else
-						{
-							sprintf(filename, "%s/PS3_GAME/ICON0.PNG", menu_list[game_sel].path);
-							if(!exist(filename)) sprintf(filename, "%s/ICON0.PNG", menu_list[game_sel].path);
-						}
-
-					if(strstr(menu_list[game_sel].content,"PS2")!=NULL)	sprintf(filename, "%s", ps2png);
-					if(strstr(menu_list[game_sel].content,"DVD")!=NULL)	sprintf(filename, "%s", dvdpng);
-
-					if(!exist(filename)) sprintf(filename, "%s/HDAVCTN/BDMT_O1.jpg", menu_list[game_sel].path);
-					if(!exist(filename)) sprintf(filename, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", menu_list[game_sel].path);
-
-					if(!exist(filename)) sprintf(filename, "%s", blankBG);
-					offX=0; offY=0;
-
-					draw_list_text( text_bmp, 1920, 1080, menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, c_opacity, 1);
-					/*sprintf(string1, "%s/%s_320.PNG", cache_dir, menu_list[game_sel].title_id);
-					if(exist(string1))
-						{
-							load_texture(text_bmpS, string1, 320);
-							put_texture( text_bmp, text_bmpS, 320, 176, 320, 1440, 648, 2, 0xc0c0c080);
-						}
-					*/
-
-					cover_available=0;
-					if(strstr(menu_list[game_sel].content,"PS3")!=NULL)
-					{
-						sprintf(string1, "%s/%s.JPG", covers_dir, menu_list[game_sel].title_id);
-						if(exist(string1))
-						{
-							cover_available=1;
-							goto fixed_cover_dm0;
-						}
-						else
-							sprintf(string1, "%s/%s.PNG", covers_dir, menu_list[game_sel].title_id);
-
-						if(exist(string1))
-						{
-							cover_available=1;
-							goto fixed_cover_dm0;
-						}
-						else
-						{
-							if((menu_list[game_sel].cover!=-1 && menu_list[game_sel].cover!=1))
-							{
-								sprintf(string1, "%s/%s.JPG", covers_dir, menu_list[game_sel].title_id);
-								download_cover(menu_list[game_sel].title_id, string1);
-							}
-						}
-
-						if(exist(string1))
-						{
-							cover_available=1;
-						}
-						else
-						{
-							sprintf(string1, "%s/NOID.JPG", app_usrdir);
-							cover_available=1;
-						}
-
-fixed_cover_dm0:
-						if(cover_available)
-						{
-							load_texture(text_bmpS, string1, 320);
-							put_texture( text_bmp, text_bmpS, 260, 300, 320, 1470, 300, 2, 0xc0c0c080);
-						}
-					}
-					else
-					{
-						sprintf(string1, "%s/NOID.JPG", app_usrdir);
-						load_texture(text_bmpS, string1, 320);
-						put_texture( text_bmp, text_bmpS, 260, 300, 320, 1470, 300, 2, 0xc0c0c080);
-					}
-
-					load_texture(text_bmpS, filename, 320);
-					if(menu_list[game_sel].title[0]=='_' || menu_list[game_sel].split) gray_texture(text_bmpS, 320, 320, 0);
-
-					counter_png=10;
-					}
 // mode 4x2
 				if(cover_mode==1 && int(game_sel/8)!=game_last_page)
 				{
@@ -22776,116 +22653,6 @@ fixed_cover:
 
 					counter_png=40;
 				}
-
-
-				if(cover_mode==2)
-					{
-					cover_available=0;
-					if(strstr(menu_list[game_sel].content,"PS2")!=NULL || strstr(menu_list[game_sel].content,"DVD")!=NULL)
-					{
-						sprintf(filename, "%s", avchdBG);
-						goto DM2_load_textB;
-					}
-
-					if(strstr(menu_list[game_sel].content,"PS3")!=NULL)
-						sprintf(filename, "%s/PS3_GAME/PIC1.PNG", menu_list[game_sel].path);
-					else
-						sprintf(filename, "%s/POSTER.JPG", menu_list[game_sel].path);
-
-					if(strstr(menu_list[game_sel].content,"PS3")==NULL) {
-						if(!exist(filename) && strstr(menu_list[game_sel].path,"/pvd_usb")==NULL)
-							sprintf(filename, "%s", avchdBG);
-					}
-					else
-						{
-							sprintf(string1, "%s/PS3_GAME/PIC1.PNG", menu_list[game_sel].path);
-							if(strstr(filename, "POSTER")==NULL) { //strstr (filename,"/dev_hdd0/")==NULL &&
-								sprintf(filename, "%s/%s_1920.PNG", cache_dir, menu_list[game_sel].title_id);
-								if(!exist(filename)) cache_png(string1, menu_list[game_sel].title_id);
-								if(!exist(filename)) {sprintf(filename, "%s", avchdBG);}
-							}
-						}
-
-DM2_load_textB:
-					load_texture(text_bmp, filename, 1920);
-					draw_list_text( text_bmp, 1920, 1080, menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, c_opacity, 1);
-
-					if(strstr(menu_list[game_sel].content,"PS2")!=NULL)	{sprintf(filename, "%s", ps2png); goto DM2_load_text;}
-					if(strstr(menu_list[game_sel].content,"DVD")!=NULL)	{
-						cover_available=1;
-						sprintf(filename, "%s/COVER.JPG", menu_list[game_sel].path);
-						if(!exist(filename)) sprintf(filename, "%s/COVER.PNG", menu_list[game_sel].path);
-						if(!exist(filename)) {sprintf(filename, "%s", dvdpng); cover_available=0; }
-						goto DM2_load_text;
-					}
-
-					if(strstr(menu_list[game_sel].content,"PS3")!=NULL)
-					{
-
-						sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[game_sel].title_id);
-						if(!exist(filename)) sprintf(filename, "%s/%s.PNG", covers_dir, menu_list[game_sel].title_id);
-						else
-						{
-							cover_available=1;
-							goto DM2_load_text;
-						}
-
-						if(!exist(filename))
-						{
-							if(menu_list[game_sel].cover!=-1 && menu_list[game_sel].cover!=1)
-							{
-								sprintf(filename, "%s/%s.JPG", covers_dir, menu_list[game_sel].title_id);
-								download_cover(menu_list[game_sel].title_id, filename);
-								if(exist(filename))
-									cover_available=1;
-								else
-								{
-									sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[game_sel].title_id);
-									if(!exist(filename)) sprintf(filename, "%s/ICON0.PNG", menu_list[game_sel].path);
-								}
-							}
-							else
-							{
-								sprintf(filename, "%s/%s_320.PNG", cache_dir, menu_list[game_sel].title_id);
-								if(!exist(filename)) sprintf(filename, "%s/ICON0.PNG", menu_list[game_sel].path);
-							}
-						}
-						else
-							cover_available=1;
-
-						goto DM2_load_text;
-					}
-
-
-					sprintf(filename, "%s/HDAVCTN/BDMT_O1.jpg", menu_list[game_sel].path);
-					if(!exist(filename)) sprintf(filename, "%s/BDMV/META/DL/HDAVCTN_O1.jpg", menu_list[game_sel].path);
-
-					sprintf(string1, "%s/COVER.JPG", menu_list[game_sel].path);
-					if(!exist(string1)) sprintf(string1, "%s/COVER.PNG", menu_list[game_sel].path);
-
-
-					if(exist(string1))
-					{
-						cover_available=1;
-						sprintf(filename,"%s",string1);
-					}
-					else
-					{
-						//menu_list[game_sel].cover=-1;
-						cover_available=1;
-						sprintf(filename, "%s/NOID.JPG", app_usrdir);
-					}
-
-
-					if(!exist(filename)) sprintf(filename, "%s", blankBG);
-
-
-DM2_load_text:
-					load_texture(text_bmpS, filename, 320);
-
-					if(menu_list[game_sel].title[0]=='_' || menu_list[game_sel].split) gray_texture(text_bmpS, 320, 320, 0);
-					counter_png=40;
-					}
 
 				if(cover_mode==6)
 				{
@@ -26710,41 +26477,8 @@ skip_to_FM:
 		{
 			if(game_sel>=0 && (((mode_list==0) /*&& max_menu_list>0*/)) ) // && png_w!=0 && png_h!=0
 				{
-				if(cover_mode==0 && max_menu_list>0)
-				{
-					set_texture( text_bmpS, 320, 320); //ICON0.PNG
-
-					if(offX<0 || offY<0 || offX>31 || offY>31 || animation==0 || animation==2) {offX=0; offY=0;}
-					if(animation==0 || animation==2) incZ=0;
-					{offX=0; offY=0; incZ=0;}
-					offY+=(float)(incZ*0.5625f); offX+=incZ; if(offX>30) {incZ=-0.25f;};if(offX<1) {incZ=0.25f;};
-					display_img((int)(1440-offX), (int)(80-offY), 320+(int)(offX*2.0f), 176+(int)(offY*2.0f), 320, 176, 0.0f, 320, 320);
-				}
-
-
 				if((cover_mode==1 || cover_mode==6 || cover_mode==7) && max_menu_list>0)
 				{
-					set_texture( text_bmp, 1920, 1080); //PIC1.PNG
-					display_img(0, 0, 1920, 1080, 1920, 1080, 0.0f, 1920, 1080);
-
-				}
-
-				if(cover_mode==2 && max_menu_list>0)
-				{
-					set_texture( text_bmpS, 320, 320);
-
-					if(offX<0 || offY<0 || offX>31 || animation==0 || animation==2) {offX=0; offY=0;} // offY>31 ||
-					if(animation==0 || animation==2) incZ=0;
-					if(cover_available==1)
-						offY+=(float)(incZ*1.1538f);
-					else
-						offY+=(float)(incZ*0.5500f);
-					offX+=incZ; if(offX>30) {incZ=-0.3f;};if(offX<1) {incZ=0.3f;};
-					if(cover_available==1)
-						display_img((int)(1540-offX), (int)(80-offY), 260+(int)(offX*2.0f), 300+(int)(offY*2.0f), 260, 300, -0.5f, 320, 320);
-					else
-						display_img((int)(1440-offX), (int)(80-offY), 320+(int)(offX*2.0f), 176+(int)(offY*2.0f), 320, 176, -0.5f, 320, 320);
-
 					set_texture( text_bmp, 1920, 1080); //PIC1.PNG
 					display_img(0, 0, 1920, 1080, 1920, 1080, 0.0f, 1920, 1080);
 
@@ -27190,19 +26924,7 @@ skip_to_FM:
 
 					if(game_sel>=0 && max_menu_list>0)
 					{
-						if(cover_mode==0 || cover_mode==2)
-						{
-							if(cover_mode==0)
-							draw_square(-0.9f, 0.9f, 2.0f-(0.70f-(0*2)), 2.0-0.50f-(2.0*0), 0.7f, 0x2080ff30);
-							draw_list_text( text_bmp, 1920, 1080, menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, c_opacity, 0);
-							set_texture( text_bmp, 1920, 1080);  display_img(0, 0, 1920, 1080, 1920, 1080, -0.2f, 1920, 1080);
-
-
-						}
-						else
-						{
-								draw_list( menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, game_sel_last, c_opacity);
-						}
+						draw_list( menu_list, max_menu_list, game_sel | (0x10000 * ((menu_list[0].flags & 2048)!=0)), dir_mode, display_mode, cover_mode, game_sel_last, c_opacity);
 					}
 					else if(cover_mode != MODE_FILEMAN && cover_mode != MODE_XMMB) cellDbgFontPrintf( 0.08f, 0.1f, 1.0f, 0x80808080, "Insert Blu-ray game disc...\n\nPress [TRIANGLE] to access system menu.\nEdit options.ini if necessary!\n\nPress [SELECT]+[START] for File Manager mode.");
 				}
